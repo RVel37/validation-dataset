@@ -1,10 +1,12 @@
+# Validation Dataset
+
 This project (work in progress) aims to create a validation dataset by using [BamSurgeon](https://github.com/adamewing/bamsurgeon), which allows for mutations to be spiked into existing BAM files. Using "frankenBAM" samples for validation purposes allows laboratories to validate hundreds of variants within one sample, saving significant time and computational power. 
 
-1. Obtain variant list
+## 1. Obtain variant list
 
 A list of pathogenic/likely pathogenic variants previously identified in the laboratory and their metadata was generated using Crystal Reports. Resulting file is a `csv`.
 
-2. Convert dataset into format compatible with BamSurgeon
+## 2. Convert dataset into format compatible with BamSurgeon
 
 In order to use these variants as our BamSurgeon input, they must be formatted as a BED file with columns: 
 `chr    start   end VAF alt`
@@ -22,8 +24,7 @@ Working on bash script that:
 In the case of exomes/genomes, which are run as trios, we also require a BED file representing the mother and father. 
 - for duos, the other parent is effectively assumed to match the reference genome, since the variant will not be added to the corresponding bed file. 
 
-
-3. Running BamSurgeon (addsnv.py)
+## 3. Running BamSurgeon (addsnv.py)
 
 Used Dockerfile in `bamsurgeon-docker` to run BamSurgeon. 
 
