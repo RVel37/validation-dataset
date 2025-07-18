@@ -1,10 +1,23 @@
 #!/bin/bash
 
-INPUT_FILE=${1}
+#   This script processes a CSV file that contains variant information,
+#   extracting coordinates and zygosity information for proband, mother, and father
+#   by navigating to annotation files from DNAnexus (Alamut or VEP) and using information
+#   from these files.
+#   Output is written in BED format for downstream analysis with BAMSurgeon.
+#
+#   Usage: ./find_coords.csv input_file.csv
+#   Input: input_file.csv
+#   Outputs: bedfiles/proband.bed; bedfiles/mother.bed; bedfiles/father.bed
+
+
+INPUT_FILE=${1} 
+# sample details file exists on DNAnexus; lists all samples processed
 SAMPLE_DETAILS="Resources:/sample_details/sample_details.tsv"
+# directory with bed files to be written
 BED_DIR="bedfiles"
 
-# ENSURE BEDFILES EXIST
+# ENSURE BEDFILES EXIST (and temp files for processing purposes)
 mkdir -p bedfiles; mkdir -p temp
 touch temp/temp.txt; touch temp/temp_annot.txt; touch temp/temp_fam.txt
 
@@ -31,37 +44,42 @@ extract_zygosity() {
 }
 
 
-
 # extract columns from the dataset
 tail -n +2 "$INPUT_FILE" | while IFS=$'\t' read -r ROW; do
     FOLDERNO=$(echo "$ROW" | cut -f1)
     CDNACHANGE=$(echo "$ROW" | cut -f3)
     GENENAME=$(echo "$ROW" | cut -f4)
 
-echo "Processing folder: $FOLDERNO, $GENENAME, $CDNACHANGE"
+echo "Processing folder: $FOLDERNO, $GENENAME, $CDNACHANGE" >> log.txt
 
 # get family number from sample details e.g. F08796
 FAM_NUM=$(dx cat $SAMPLE_DETAILS | grep $FOLDERNO | cut -f2)
 
-echo "Family number: $FAM_NUM"
+echo "Family number: $FAM_NUM" >> log.txt
 
 # CHECK WHETHER ALAMUT OR VEP ANNOTATION FILE
-alamut_or_vep(i) {
+alamut_or_vep() {
+    local i="$1"
     alamut=$(dx find data --name "*$i*.annotated.txt" | grep -oP '\(\K[^)]*(?=\))')
     vep=$(dx find data --name "*$i*.vep.vcf.gz" | grep -oP '\(\K[^)]*(?=\))')
 
-    if $alamut == NULL
-        return $vep
-    elif return $alamut
-    else return "Couldn't find annotation file for: $i" # LOG THIS !!!!
+    if [[ -n "$alamut" ]]; then
+        echo "alamut"
+    elif [[ -n "$vep" ]]; then
+        echo "vep"
+    else
+        echo "none"
+    fi
 }
 
+ANNOT_TYPE=$(alamut_or_vep "$FOLDERNO")
 
 ################
 #   ALAMUT
 ################
 
-    if $alamut;
+if [[ "$ANNOT_TYPE" == "alamut" ]]; then
+    echo "Using ALAMUT annotation file for $FOLDERNO" >> log.txt
 
     # get annotation file (in brackets)
     ANNOTATION_FILE=$(dx find data --name "*$FOLDERNO*.annotated.txt" | grep -oP '\(\K[^)]*(?=\))')
@@ -82,9 +100,7 @@ alamut_or_vep(i) {
     MOTHER=$(awk '$NF=="mother" {print $1}' "temp_fam.txt")
     FATHER=$(awk '$NF=="father" {print $1}' "temp_fam.txt")
 
-    # match each GT column with PROBAND, MOTHER and FATHER 
-
-    # GT column names:
+    # match each GT column with PROBAND, MOTHER and FATHER -> save to temp file
     while IFS=$'\t' read -r ROW; do
         RELATIONSHIP=$(echo "$ROW" | tr '[:upper:]' '[:lower:]')
 
@@ -102,6 +118,16 @@ alamut_or_vep(i) {
     echo "Mother:  $MOTHER"
     echo "Father:  $FATHER"
 
+    # Skip missing parental samples (note: for duos/singletons, skipping the parent means they are assumed to match the reference genome.)
+    MISSING=()
+    if [[ -z "$MOTHER" ]]; then
+        echo "\nMother missing for $FAM_NUM — skipping mother" >> log.txt
+        MISSING+=("mother")
+    fi
+    if [[ -z "$FATHER" ]]; then
+        echo "\nFather missing for $FAM_NUM — skipping father" >> log.txt
+        MISSING+=("father")
+    fi
 
     # header line
     HEADER=$(head -n 1 temp.txt)
@@ -127,7 +153,6 @@ alamut_or_vep(i) {
     echo "GT columns: $PROBAND_COL, $MOTHER_COL, $FATHER_COL (proband, mother, father)"
 
     awk -F'\t' -v p="$PROBAND_COL" -v m="$MOTHER_COL" -v f="$FATHER_COL" '{print $p, $m, $f}' temp.txt
-
 
     row_number=0
     tail -n +2 temp.txt | while IFS= read -r ROW; do
@@ -156,20 +181,24 @@ alamut_or_vep(i) {
 
             ### ERROR: THIS PRINTS THE HEADER TOO. Do tail -n -2 ? ###
             echo -e "$CHR\t$START\t$END\t$PROBAND_Z" >> "$BED_DIR/proband.bed"
-            echo -e "$CHR\t$START\t$END\t$MOTHER_Z" >> "$BED_DIR/mother.bed"
-            echo -e "$CHR\t$START\t$END\t$FATHER_Z" >> "$BED_DIR/father.bed"
-        
-        ### NEED FUNCTION TO PIPE FAILURES (e.g. quads/duos??) ###
-        ### for duos, skipping the parent means they are assumed to match the reference genome. 
-
+            if [[ ! " ${MISSING[*]} " =~ " mother " ]]; then
+                echo -e "$CHR\t$START\t$END\t$MOTHER_Z" >> "$BED_DIR/mother.bed"
+            fi
+            if [[ ! " ${MISSING[*]} " =~ " father " ]]; then
+                echo -e "$CHR\t$START\t$END\t$FATHER_Z" >> "$BED_DIR/father.bed"
+            fi
         done
-
     done
 
 ################
 #   VEP
 ################
 
-elif vep;
+elif [[ "$ANNOT_TYPE" == "vep" ]]; then
+    echo "Using VEP annotation file for $FOLDERNO" >> log.txt
+    ANNOTATION_FILE=$(dx find data --name "*$FOLDERNO*.vep.vcf.gz" | grep -oP '\(\K[^)]*(?=\))')
 
-    
+else
+    echo "ERROR: Could not find annotation file for $FOLDERNO" >&2 # send to stderr
+    continue
+fi
