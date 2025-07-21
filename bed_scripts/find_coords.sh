@@ -77,17 +77,84 @@ echo "annotation type = $ANNOT_TYPE"
 #   VEP
 ################
 
-elif [[ "$ANNOT_TYPE" == "vep" ]]; then
-    echo "Using VEP annotation file for $FOLDERNO" >> log.txt
+echo "Using VEP annotation file for $FOLDERNO" >> log.txt
 
-    # Find VEP file (zipped vcf)
-    VCF=$(zcat "*$FOLDERNO*.vep.vcf.gz")
-    ANNOTATION_FILE=$(dx find data --name "*$VCF" | grep -oP '\(\K[^)]*(?=\))')
+# Find VEP file (zipped vcf)
+VCF=$(zcat "*$FOLDERNO*.vep.vcf.gz")
+ANNOTATION_FILE=$(dx find data --name "*$VCF" | grep -oP '\(\K[^)]*(?=\))')
 
-    # zcat and wipe metadata lines
-    dx cat "$ANNOTATION_FILE" | zcat | awk '!/^##/' > temp1.vcf
+# zcat and wipe metadata lines, then grep for variants that match gene name and DNA change
+dx cat "$ANNOTATION_FILE" | zcat | grep -v "^##" | grep "$GENENAME" | grep "$CDNACHNAGE" > temp/temp.txt
 
-    
+# get relevant rows from temp.txt: CROM and POS
+awk -F '\t' -v gene"$GENENAME" -v cdna="$CDNACHANGE" '{print $1, gene, $2, $2, $2, cdna}'
+
+# FINDING ZYGOSITY INFO
+# Extract sample IDs for proband, mother and father from sample details
+while IFS=$'\t' read -r ROW; do
+    RELATIONSHIP=$(echo "$ROW" | tr '[:upper:]' '[:lower:]') 
+
+    if echo "$RELATIONSHIP" | grep -q "proband"; then
+        PROBAND=$(echo "$ROW" | cut -f1)
+    elif echo "$RELATIONSHIP" | grep -q "mother"; then
+        MOTHER=$(echo "$ROW" | cut -f1)
+    elif echo "$RELATIONSHIP" | grep -q "father"; then
+        FATHER=$(echo "$ROW" | cut -f1)
+    fi
+done < temp/temp_fam.txt
+
+# debugging
+echo "Sample IDs:"
+echo "Proband: $PROBAND"
+echo "Mother:  $MOTHER"
+echo "Father:  $FATHER"
+
+# header line
+HEADER=$(head -n 1 temp.txt)
+
+# convert header line into an array of columns
+IFS=$'\t' read -r -a COLUMNS <<< "$HEADER"
+
+# initialise GT column indices to 0 (if not found, i.e. for duos/singletons)
+PROBAND_COL=0
+MOTHER_COL=0
+FATHER_COL=0
+
+# GT column names to match in header
+GT_PROBAND="GT (${PROBAND})"
+GT_MOTHER="GT (${MOTHER})"
+GT_FATHER="GT (${FATHER})"
+
+# Loop through to find indexes of GT columns
+for i in "${!COLUMNS[@]}"; do
+    COLNAME="${COLUMNS[$i]}"
+    if [ "$COLNAME" = "$GT_PROBAND" ]; then
+        PROBAND_COL=$((i+1))
+    elif [ "$COLNAME" = "$GT_MOTHER" ]; then
+        MOTHER_COL=$((i+1))
+    elif [ "$COLNAME" = "$GT_FATHER" ]; then
+        FATHER_COL=$((i+1))
+    fi
+done
+
+echo "GT columns: $PROBAND_COL, $MOTHER_COL, $FATHER_COL (proband, mother, father)"
+
+# pull the GT field from each sample column
+awk -F'\t' -v p="$PROBAND_COL" -v m="$MOTHER_COL" -v f="$FATHER_COL" '
+{
+    if (p>0) {split($p, p, ":"); proband_gt=p[1]}
+    else {proband_gt = ""}
+
+    if (m>0) {split($m, m, ":"); mother_gt=m[1]}
+    else {mother_gt = ""}
+
+    if (f>0) {split($f, f, ":"); father_gt=f[1]}
+    else {father_gt = ""}
+
+    print proband_gt, mother_gt, father_gt
+}'  temp/temp.txt
+
+
 
 
     # VEP LOGIC:
@@ -99,20 +166,6 @@ elif [[ "$ANNOT_TYPE" == "vep" ]]; then
     # Remove any lines in the vep.vcf
 
 
-
-    # get relevant rows: chr.no, gene name, start, end, c.nomen (AND SKIP HEADER)
-    awk -F '\t' 'NR > 1 {print $2, $7, $20, $21, $25}' temp.txt > temp_annot.txt
-
-
-    # get zygosities of parents
-    # from temp.txt pull out all columns GT(*) 
-
-    # get mother and father's IDs
-    dx cat Resources:/sample_details/sample_details.tsv | grep $FAM_NUM > temp_fam.txt
-
-    PROBAND=$(awk '$3=="Proband" {print $1}' "temp_fam.txt")
-    MOTHER=$(awk '$NF=="mother" {print $1}' "temp_fam.txt")
-    FATHER=$(awk '$NF=="father" {print $1}' "temp_fam.txt")
 
     # match each GT column with PROBAND, MOTHER and FATHER -> save to temp file
     while IFS=$'\t' read -r ROW; do
@@ -132,23 +185,14 @@ elif [[ "$ANNOT_TYPE" == "vep" ]]; then
     echo "Mother:  $MOTHER"
     echo "Father:  $FATHER"
 
-    # Skip missing parental samples (note: for duos/singletons, skipping the parent means they are assumed to match the reference genome.)
-    MISSING=()
-    if [[ -z "$MOTHER" ]]; then
-        echo "\nMother missing for $FAM_NUM — skipping mother" >> log.txt
-        MISSING+=("mother")
-    fi
-    if [[ -z "$FATHER" ]]; then
-        echo "\nFather missing for $FAM_NUM — skipping father" >> log.txt
-        MISSING+=("father")
-    fi
 
     # header line
     HEADER=$(head -n 1 temp.txt)
 
-    # create an array from the header columns + loop through to find GT col numbers
+    # convert header line into an array of columns
     IFS=$'\t' read -r -a COLUMNS <<< "$HEADER"
 
+    # initialise GT column indices to 0 (if not found, i.e. for duos/singletons)
     GT_PROBAND="GT (${PROBAND})"
     GT_MOTHER="GT (${MOTHER})"
     GT_FATHER="GT (${FATHER})"
