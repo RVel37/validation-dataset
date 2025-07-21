@@ -31,7 +31,7 @@ extract_zygosity() {
 }
 
 
-# extract columns from the dataset
+# extract useful columns from input csv
 tail -n +2 "$INPUT_FILE" | while IFS=$'\t' read -r ROW; do
     FOLDERNO=$(echo "$ROW" | cut -f1)
     CDNACHANGE=$(echo "$ROW" | cut -f3)
@@ -44,34 +44,28 @@ FAM_NUM=$(dx cat $SAMPLE_DETAILS | grep $FOLDERNO | cut -f2)
 
 echo "Family number: $FAM_NUM"
 
-alamut_or_vep(i) {
-    alamut=$(dx find data --name "*$i*.annotated.txt" | grep -oP '\(\K[^)]*(?=\))')
-    vep=$(dx find data --name "*$i*.vep.vcf.gz" | grep -oP '\(\K[^)]*(?=\))')
+# CHECK WHETHER ALAMUT OR VEP ANNOTATION FILE
 
-    if $alamut == NULL
-        return $vep
-    elif return $alamut
-    else return "Couldn't find annotation file for: $i"
-}
+
 
 # get annotation file (in brackets)
 ANNOTATION_FILE=$(dx find data --name "*$FOLDERNO*.annotated.txt" | grep -oP '\(\K[^)]*(?=\))')
 
 # find relevant columns and save
-dx cat "$ANNOTATION_FILE" | awk -v gene="$GENENAME" -v cdna="$CDNACHANGE" 'NR==1 || ($0 ~ gene && $0 ~ cdna)' > temp.txt
+dx cat "$ANNOTATION_FILE" | awk -v gene="$GENENAME" -v cdna="$CDNACHANGE" 'NR==1 || ($0 ~ gene && $0 ~ cdna)' > temp/temp.txt
 
 # get relevant rows: chr.no, gene name, start, end, c.nomen 
-awk -F '\t' '{print $2, $7, $20, $21, $25}' temp.txt > temp_annot.txt 
+awk -F '\t' '{print $2, $7, $20, $21, $25}' temp/temp.txt > temp/temp_annot.txt 
 
 # get zygosities of parents
 # from temp.txt pull out all columns GT(*) 
 
 # get mother and father's IDs
-dx cat Resources:/sample_details/sample_details.tsv | grep $FAM_NUM > temp_fam.txt
+dx cat Resources:/sample_details/sample_details.tsv | grep $FAM_NUM > temp/temp_fam.txt
 
-PROBAND=$(awk '$3=="Proband" {print $1}' "temp_fam.txt")
-MOTHER=$(awk '$NF=="mother" {print $1}' "temp_fam.txt")
-FATHER=$(awk '$NF=="father" {print $1}' "temp_fam.txt")
+PROBAND=$(awk '$3=="Proband" {print $1}' "temp/temp_fam.txt")
+MOTHER=$(awk '$NF=="mother" {print $1}' "temp/temp_fam.txt")
+FATHER=$(awk '$NF=="father" {print $1}' "temp/temp_fam.txt")
 
 # match each GT column with PROBAND, MOTHER and FATHER 
 
@@ -86,7 +80,7 @@ while IFS=$'\t' read -r ROW; do
     elif echo "$RELATIONSHIP" | grep -q "father"; then
         FATHER=$(echo "$ROW" | cut -f1)
     fi
-done < temp_fam.txt
+done < temp/temp_fam.txt
 
 echo "Sample IDs:"
 echo "Proband: $PROBAND"
@@ -95,7 +89,7 @@ echo "Father:  $FATHER"
 
 
 # header line
-HEADER=$(head -n 1 temp.txt)
+HEADER=$(head -n 1 temp/temp.txt)
 
 # create an array from the header columns + loop through to find GT col numbers
 IFS=$'\t' read -r -a COLUMNS <<< "$HEADER"
@@ -103,7 +97,7 @@ IFS=$'\t' read -r -a COLUMNS <<< "$HEADER"
 GT_PROBAND="GT (${PROBAND})"
 GT_MOTHER="GT (${MOTHER})"
 GT_FATHER="GT (${FATHER})"
- 
+
 for i in "${!COLUMNS[@]}"; do
     COLNAME="${COLUMNS[$i]}"
     if [ "$COLNAME" = "$GT_PROBAND" ]; then
@@ -117,11 +111,11 @@ done
 
 echo "GT columns: $PROBAND_COL, $MOTHER_COL, $FATHER_COL (proband, mother, father)"
 
-awk -F'\t' -v p="$PROBAND_COL" -v m="$MOTHER_COL" -v f="$FATHER_COL" '{print $p, $m, $f}' temp.txt
+awk -F'\t' -v p="$PROBAND_COL" -v m="$MOTHER_COL" -v f="$FATHER_COL" '{print $p, $m, $f}' temp/temp.txt
 
 
 row_number=0
-tail -n +2 temp.txt | while IFS= read -r ROW; do
+tail -n +2 temp/temp.txt | while IFS= read -r ROW; do
         ((row_number++))
 
         # Extract GTs from the current row
@@ -133,7 +127,7 @@ tail -n +2 temp.txt | while IFS= read -r ROW; do
         echo "GTs: $PROBAND_GT $MOTHER_GT $FATHER_GT"
 
         # Get annotation for this row
-        ANNOT_ROW=$(sed -n "${row_number}p" temp_annot.txt)
+        ANNOT_ROW=$(sed -n "${row_number}p" temp/temp_annot.txt)
         CHR=$(echo "$ANNOT_ROW" | awk '{print $1}')
         START=$(echo "$ANNOT_ROW" | awk '{print $3}')
         END=$(echo "$ANNOT_ROW" | awk '{print $4}')
@@ -151,7 +145,7 @@ tail -n +2 temp.txt | while IFS= read -r ROW; do
         echo -e "$CHR\t$START\t$END\t$FATHER_Z" >> "$BED_DIR/father.bed"
     
     ### NEED FUNCTION TO PIPE FAILURES (e.g. quads/duos??) ###
-    ### for duos, just leave blank for parent who doesn't exist
+    ### for duos, skipping the parent means they are assumed to match the reference genome. 
 
     done
 
