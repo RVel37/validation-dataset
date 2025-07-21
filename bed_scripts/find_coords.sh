@@ -115,38 +115,38 @@ done
 
 echo "GT columns: $PROBAND_COL, $MOTHER_COL, $FATHER_COL (proband, mother, father)"
 
+# print GT columns for proband, mother, and father from annotation file
 awk -F'\t' -v p="$PROBAND_COL" -v m="$MOTHER_COL" -v f="$FATHER_COL" '{print $p, $m, $f}' temp/temp.txt
 
-
+# WRITE INFO TO BED FILES
 row_number=0
-tail -n +2 temp/temp.txt | while IFS= read -r ROW; do
+tail -n +2 temp/temp.txt | while IFS= read -r ROW; do   # skip header line of temp.txt, loop through remaining rows
         ((row_number++))
 
-        # Extract GTs from the current row
-        PROBAND_GT=$(echo "$ROW" | cut -f"$PROBAND_COL")
-        MOTHER_GT=$(echo "$ROW" | cut -f"$MOTHER_COL")
-        FATHER_GT=$(echo "$ROW" | cut -f"$FATHER_COL")
+        # Extract genotypes from current row. (If value = 0, set to empty string)
+        if [[ $PROBAND_COL -gt 0 ]]; then PROBAND_GT=$(echo "$ROW" | cut -f"$PROBAND_COL"); else PROBAND_GT=""; fi
+        if [[ $MOTHER_COL -gt 0 ]]; then MOTHER_GT=$(echo "$ROW" | cut -f"$MOTHER_COL"); else MOTHER_GT=""; fi
+        if [[ $FATHER_COL -gt 0 ]]; then FATHER_GT=$(echo "$ROW" | cut -f"$FATHER_COL"); else FATHER_GT=""; fi
 
         # Debugging
         echo "GTs: $PROBAND_GT $MOTHER_GT $FATHER_GT"
 
-        # Get annotation for this row
-        ANNOT_ROW=$(sed -n "${row_number}p" temp/temp_annot.txt)
+        # Get annotation for this row - extract the corresponding line from temp_annot.txt which has annotation info for the variant
+
+        ANNOT_ROW=$(sed -n "${row_number}p" temp/temp_annot.txt) # extract the specific row number (should match temp.txt). (sed -n = suppress automatic printing, p = print only this specific line)
         CHR=$(echo "$ANNOT_ROW" | awk '{print $1}')
         START=$(echo "$ANNOT_ROW" | awk '{print $3}')
         END=$(echo "$ANNOT_ROW" | awk '{print $4}')
 
-        # Convert to zygosity
+        # Convert to zygosity - run predefined extract_zygosity function
         PROBAND_Z=$(extract_zygosity "$PROBAND_GT")
         MOTHER_Z=$(extract_zygosity "$MOTHER_GT")
         FATHER_Z=$(extract_zygosity "$FATHER_GT")
 
-        # Write to BED files 
+        # Write to BED files:
 
-        ### ERROR: THIS PRINTS THE HEADER TOO. Do tail -n -2 ? ###
+        ### DEBUG: CHECK THE HEADER IS NO LONGER BEING PRINTED - wrote tail -n + 2 to try and fix ###        
         echo -e "$CHR\t$START\t$END\t$PROBAND_Z" >> "$BED_DIR/proband.bed"
         echo -e "$CHR\t$START\t$END\t$MOTHER_Z" >> "$BED_DIR/mother.bed"
         echo -e "$CHR\t$START\t$END\t$FATHER_Z" >> "$BED_DIR/father.bed"
-    
     done
-done
