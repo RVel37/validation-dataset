@@ -63,22 +63,20 @@ awk -F '\t' '{print $2, $7, $20, $21, $25}' temp/temp.txt > temp/temp_annot.txt
 # get mother and father's IDs
 dx cat Resources:/sample_details/sample_details.tsv | grep $FAM_NUM > temp/temp_fam.txt
 
-PROBAND=$(awk '$3=="Proband" {print $1}' "temp/temp_fam.txt")
-MOTHER=$(awk '$NF=="mother" {print $1}' "temp/temp_fam.txt")
-FATHER=$(awk '$NF=="father" {print $1}' "temp/temp_fam.txt")
-
 # match each GT column with PROBAND, MOTHER and FATHER 
 
-# GT column names:
+# Extract sample IDs for proband, mother and father from sample details
+# Check the relationship (case-insensitive) + assign sample ID to the correct member 
+
 while IFS=$'\t' read -r ROW; do
     RELATIONSHIP=$(echo "$ROW" | tr '[:upper:]' '[:lower:]')
 
     if echo "$RELATIONSHIP" | grep -q "proband"; then
-        PROBAND=$(echo "$ROW" | cut -f1)
+        PROBAND=$(echo "$ROW" | cut -f1)   # Assign sample ID to PROBAND
     elif echo "$RELATIONSHIP" | grep -q "mother"; then
-        MOTHER=$(echo "$ROW" | cut -f1)
+        MOTHER=$(echo "$ROW" | cut -f1)    # Assign sample ID to MOTHER
     elif echo "$RELATIONSHIP" | grep -q "father"; then
-        FATHER=$(echo "$ROW" | cut -f1)
+        FATHER=$(echo "$ROW" | cut -f1)    # Assign sample ID to FATHER
     fi
 done < temp/temp_fam.txt
 
@@ -87,12 +85,18 @@ echo "Proband: $PROBAND"
 echo "Mother:  $MOTHER"
 echo "Father:  $FATHER"
 
-
-# header line
+# get vcf header line
 HEADER=$(head -n 1 temp/temp.txt)
 
 # create an array from the header columns + loop through to find GT col numbers
 IFS=$'\t' read -r -a COLUMNS <<< "$HEADER"
+
+# INITIALISE TO 0 - so it doesn't crash for duos/singletons, just returns empty string
+    ### this behaviour means missing samples are assumed to match the reference genome. 
+
+PROBAND_COL=0
+MOTHER_COL=0
+FATHER_COL=0
 
 GT_PROBAND="GT (${PROBAND})"
 GT_MOTHER="GT (${MOTHER})"
@@ -144,9 +148,5 @@ tail -n +2 temp/temp.txt | while IFS= read -r ROW; do
         echo -e "$CHR\t$START\t$END\t$MOTHER_Z" >> "$BED_DIR/mother.bed"
         echo -e "$CHR\t$START\t$END\t$FATHER_Z" >> "$BED_DIR/father.bed"
     
-    ### NEED FUNCTION TO PIPE FAILURES (e.g. quads/duos??) ###
-    ### for duos, skipping the parent means they are assumed to match the reference genome. 
-
     done
-
 done
