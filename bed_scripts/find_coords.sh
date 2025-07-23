@@ -155,12 +155,19 @@ awk -F'\t' -v p="$PROBAND_COL" -v m="$MOTHER_COL" -v f="$FATHER_COL" '
     print proband_gt, mother_gt, father_gt
 }'  temp/temp.txt
 
+### ADD LOGIC FOR DUOS/SINGLETONS
+# if missing at least 1 parental sample:
+#   if proband zygosity = 1, mother and father must both be +ve - add variant to both parents
+#   if proband zygosity = 0.5, 
+#       if existing parental sample with the variant does not exist, add variant to other parent's sample
+#       else do nothing
 
-# WRITE INFO TO BED FILES
-row_number=0
-tail -n +2 temp/temp.txt | while IFS= read -r ROW; do   # starting from 2nd line (skipping header row), store the entire row as variable "ROW" (not splitting on spaces, tabs or backslashes) and loop through
 
+# # WRITE INFO TO BED FILES
+# row_number=0
+# tail -n +2 temp/temp.txt | while IFS= read -r ROW; do   # starting from 2nd line (skipping header row), store the entire row as variable "ROW" (not splitting on spaces, tabs or backslashes) and loop through
 
+### TO BE ADDED
 
 
 
