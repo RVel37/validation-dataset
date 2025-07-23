@@ -1,6 +1,7 @@
 # Validation Dataset
 
-This project (work in progress) aims to create a validation dataset by using [BamSurgeon](https://github.com/adamewing/bamsurgeon), which allows for mutations to be spiked into existing BAM files. Using "frankenBAM" samples for validation purposes allows laboratories to validate hundreds of variants within one sample, saving significant time and computational power. 
+> This project is a work-in-progress
+The aim is to create a validation dataset by using [BamSurgeon](https://github.com/adamewing/bamsurgeon), which allows for mutations to be spiked into existing BAM files. Using "frankenBAM" samples for validation purposes allows laboratories to validate hundreds of variants within one sample, saving significant time and computational power. 
 
 ## 1. Obtain variant list
 
