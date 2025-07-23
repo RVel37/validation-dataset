@@ -1,0 +1,9 @@
+*.vcf
+*.bed
+*.txt
+*.tsv
+*.gz
+bedfiles/
+inputs/
+annotfiles/
+scrap-delete
