@@ -17,8 +17,13 @@ SAMPLE_DETAILS="Resources:/sample_details/sample_details.tsv"
 BED_DIR="bedfiles"
 
 # ENSURE BEDFILES EXIST (and temp files for processing purposes)
-mkdir -p bedfiles; mkdir -p temp
-touch temp/temp.txt; touch temp/temp_annot.txt; touch temp/temp_fam.txt
+mkdir -p "$BED_DIR" temp
+: > temp/temp.txt
+: > temp/temp_annot.txt
+: > temp/temp_fam.txt
+: > log.txt
+: > success.txt
+: > stderr
 
 for i in proband.bed mother.bed father.bed; do
     # create files if they don't exist
@@ -165,7 +170,7 @@ row_number=2 # skip header in temp_annot.txt
 tail -n +2 temp/temp.txt | while IFS= read -r ROW; do 
 
     # Debugging
-    echo "GTs: $PROBAND_GT $MOTHER_GT $FATHER_GT"
+    echo "GTs: $PROBAND_GT $MOTHER_GT $FATHER_GT" >> log.txt
 
     # Extract annotation info for the variant from annot.txt
     ANNOT_ROW=$(sed -n "${row_number}p" temp/temp_annot.txt)
@@ -185,4 +190,17 @@ tail -n +2 temp/temp.txt | while IFS= read -r ROW; do
 
     row_number=$((row_number+1))
 done
+
+# clean up logs
+EXPECTED_LINES=8 # lines that would be printed per successful run
+ACTUAL_LINES=$(wc -l < log.txt)
+
+if [ "$ACTUAL_LINES" -eq "$EXPECTED_LINES" ]; then
+    echo "$FOLDERNO" >> success.txt
+else
+    cat log.txt >&2
+fi
+
+> log.txt # wipe log file for the next sample
+
 done
