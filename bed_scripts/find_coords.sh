@@ -87,7 +87,7 @@ ANNOTATION_FILE=$(dx find data --name "*$VCF" | grep -oP '\(\K[^)]*(?=\))')
 dx cat "$ANNOTATION_FILE" | zcat | grep -v "^##" | grep "$GENENAME" | grep "$CDNACHNAGE" > temp/temp.txt
 
 # get relevant rows from temp.txt: CROM and POS
-awk -F '\t' -v gene"$GENENAME" -v cdna="$CDNACHANGE" '{print $1, gene, $2, $2, $2, cdna}'
+awk -F '\t' -v gene="$GENENAME" -v cdna="$CDNACHANGE" '{print $1, gene, $2, $2, $2, cdna}'
 
 # FINDING ZYGOSITY INFO
 # Extract sample IDs for proband, mother and father from sample details
@@ -110,7 +110,7 @@ echo "Mother:  $MOTHER"
 echo "Father:  $FATHER"
 
 # header line
-HEADER=$(head -n 1 temp.txt)
+HEADER=$(head -n 1 temp/temp.txt)
 
 # convert header line into an array of columns
 IFS=$'\t' read -r -a COLUMNS <<< "$HEADER"
@@ -120,16 +120,16 @@ PROBAND_COL=0
 MOTHER_COL=0
 FATHER_COL=0
 
-# GT column names to match in header
-GT_PROBAND="GT (${PROBAND})"
-GT_MOTHER="GT (${MOTHER})"
-GT_FATHER="GT (${FATHER})"
+# GT header column names
+GT_PROBAND="${PROBAND}"
+GT_MOTHER="${MOTHER}"
+GT_FATHER="${FATHER}"
 
-# Loop through to find indexes of GT columns
+# Find and assign indexes of GT columns
 for i in "${!COLUMNS[@]}"; do
     COLNAME="${COLUMNS[$i]}"
     if [ "$COLNAME" = "$GT_PROBAND" ]; then
-        PROBAND_COL=$((i+1))
+        PROBAND_COL=$((i+1)) # bash array indices are zero-based but awk uses one-based indexing, so "i+1"
     elif [ "$COLNAME" = "$GT_MOTHER" ]; then
         MOTHER_COL=$((i+1))
     elif [ "$COLNAME" = "$GT_FATHER" ]; then
@@ -137,9 +137,10 @@ for i in "${!COLUMNS[@]}"; do
     fi
 done
 
+#debugging
 echo "GT columns: $PROBAND_COL, $MOTHER_COL, $FATHER_COL (proband, mother, father)"
 
-# pull the GT field from each sample column
+# pull the GT field from each sample column - if they are 0 then print nothing
 awk -F'\t' -v p="$PROBAND_COL" -v m="$MOTHER_COL" -v f="$FATHER_COL" '
 {
     if (p>0) {split($p, p, ":"); proband_gt=p[1]}
@@ -155,97 +156,13 @@ awk -F'\t' -v p="$PROBAND_COL" -v m="$MOTHER_COL" -v f="$FATHER_COL" '
 }'  temp/temp.txt
 
 
-
-
-    # VEP LOGIC:
-    # extract CHROM, POS, REF, ALT for BED coords
-    # Use INFO col to map cDNA change to chromosome coords
-    # pull GT fields from FORMAT
-    # pull corresponding sample columns for proband, mother and father samples
-
-    # Remove any lines in the vep.vcf
+# WRITE INFO TO BED FILES
+row_number=0
+tail -n +2 temp/temp.txt | while IFS= read -r ROW; do   # starting from 2nd line (skipping header row), store the entire row as variable "ROW" (not splitting on spaces, tabs or backslashes) and loop through
 
 
 
-    # match each GT column with PROBAND, MOTHER and FATHER -> save to temp file
-    while IFS=$'\t' read -r ROW; do
-        RELATIONSHIP=$(echo "$ROW" | tr '[:upper:]' '[:lower:]')
 
-        if echo "$RELATIONSHIP" | grep -q "proband"; then
-            PROBAND=$(echo "$ROW" | cut -f1)
-        elif echo "$RELATIONSHIP" | grep -q "mother"; then
-            MOTHER=$(echo "$ROW" | cut -f1)
-        elif echo "$RELATIONSHIP" | grep -q "father"; then
-            FATHER=$(echo "$ROW" | cut -f1)
-        fi
-    done < temp_fam.txt
-
-    echo "Sample IDs:"
-    echo "Proband: $PROBAND"
-    echo "Mother:  $MOTHER"
-    echo "Father:  $FATHER"
-
-
-    # header line
-    HEADER=$(head -n 1 temp.txt)
-
-    # convert header line into an array of columns
-    IFS=$'\t' read -r -a COLUMNS <<< "$HEADER"
-
-    # initialise GT column indices to 0 (if not found, i.e. for duos/singletons)
-    GT_PROBAND="GT (${PROBAND})"
-    GT_MOTHER="GT (${MOTHER})"
-    GT_FATHER="GT (${FATHER})"
-    
-    for i in "${!COLUMNS[@]}"; do
-        COLNAME="${COLUMNS[$i]}"
-        if [ "$COLNAME" = "$GT_PROBAND" ]; then
-            PROBAND_COL=$((i+1))
-        elif [ "$COLNAME" = "$GT_MOTHER" ]; then
-            MOTHER_COL=$((i+1))
-        elif [ "$COLNAME" = "$GT_FATHER" ]; then
-            FATHER_COL=$((i+1))
-        fi
-    done
-
-    echo "GT columns: $PROBAND_COL, $MOTHER_COL, $FATHER_COL (proband, mother, father)"
-
-    awk -F'\t' -v p="$PROBAND_COL" -v m="$MOTHER_COL" -v f="$FATHER_COL" '{print $p, $m, $f}' temp.txt
-
-    row_number=0
-    tail -n +2 temp.txt | while IFS= read -r ROW; do
-            ((row_number++))
-
-            # Extract GTs from the current row
-            PROBAND_GT=$(echo "$ROW" | cut -f"$PROBAND_COL")
-            MOTHER_GT=$(echo "$ROW" | cut -f"$MOTHER_COL")
-            FATHER_GT=$(echo "$ROW" | cut -f"$FATHER_COL")
-
-            # Debugging
-            echo "GTs: $PROBAND_GT $MOTHER_GT $FATHER_GT"
-
-            # Get annotation for this row
-            ANNOT_ROW=$(sed -n "${row_number}p" temp_annot.txt)
-            CHR=$(echo "$ANNOT_ROW" | awk '{print $1}')
-            START=$(echo "$ANNOT_ROW" | awk '{print $3}')
-            END=$(echo "$ANNOT_ROW" | awk '{print $4}')
-
-            # Convert to zygosity
-            PROBAND_Z=$(extract_zygosity "$PROBAND_GT")
-            MOTHER_Z=$(extract_zygosity "$MOTHER_GT")
-            FATHER_Z=$(extract_zygosity "$FATHER_GT")
-
-            # Write to BED files 
-
-            ### ERROR: THIS PRINTS THE HEADER TOO. Do tail -n -2 ? ###
-            echo -e "$CHR\t$START\t$END\t$PROBAND_Z" >> "$BED_DIR/proband.bed"
-            if [[ ! " ${MISSING[*]} " =~ " mother " ]]; then
-                echo -e "$CHR\t$START\t$END\t$MOTHER_Z" >> "$BED_DIR/mother.bed"
-            fi
-            if [[ ! " ${MISSING[*]} " =~ " father " ]]; then
-                echo -e "$CHR\t$START\t$END\t$FATHER_Z" >> "$BED_DIR/father.bed"
-            fi
-    done
 
 else
     echo "ERROR: Could not find annotation file for $FOLDERNO" >&2 # send to stderr
