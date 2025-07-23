@@ -120,7 +120,7 @@ awk -F'\t' -v p="$PROBAND_COL" -v m="$MOTHER_COL" -v f="$FATHER_COL" '{print $p,
 
 # WRITE INFO TO BED FILES
 row_number=0
-tail -n +2 temp/temp.txt | while IFS= read -r ROW; do   # skip header line of temp.txt, loop through remaining rows
+tail -n +2 temp/temp.txt | while IFS= read -r ROW; do   # starting from 2nd line (skipping header row), store the entire row as variable "ROW" (not splitting on spaces, tabs or backslashes) and loop through
         ((row_number++))
 
         # Extract genotypes from current row. (If value = 0, set to empty string)
