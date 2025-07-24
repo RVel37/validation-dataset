@@ -1,8 +1,0 @@
-bedfiles/*
-temp/*
-female_proband.tsv
-male_proband.tsv
-mini_f_proband.tsv
-filtered.vep.vcf
-minimal.vep.vcf
-minimal.annotated.txt
