@@ -73,21 +73,100 @@ FAM_NUM=$(dx cat "$SAMPLE_DETAILS" | grep "$FOLDERNO" | cut -f2)
 echo "Family number: $FAM_NUM" >> log.txt
 
 
-
 ANNOT_TYPE=$(alamut_or_vep "$FOLDERNO")
-echo "annotation type = $ANNOT_TYPE" >> log.txt
+echo "Annotation type = $ANNOT_TYPE" >> log.txt
 
-# to construct if-else loop choosing between either alamut or vep processing
+# if-else loop choosing between either alamut or vep processing
 
-if $ANNOT_TYPE = "alamut" do;
+if [[ "$ANNOT_TYPE" == "alamut" ]]; then
+
+################
+#   ALAMUT
+################
+
+echo "Using ALAMUT annotation file for $FOLDERNO" >> log.txt
+
+# Find Alamut file
+ANNOTATION_FILE=$(dx find data --name "*$FOLDERNO*.annotated.txt" | grep -oP '\(\K[^)]*(?=\))')
+echo "$ANNOTATION_FILE" >> log.txt
+
+# find the relevant columns (matching our gene name and cDNA change) and save to temp.txt
+dx cat "$ANNOTATION_FILE" | awk -v gene="$GENENAME" -v cdna="$CDNACHANGE" 'NR==1 || ($0 ~ gene && $0 ~ cdna)' > temp/temp.txt
+
+# get relevant rows: chr.no, gene name, start, end, c.nomen 
+awk -F '\t' '{print $2, $7, $20, $21, $25}' temp/temp.txt > temp/temp_annot.txt
+
+# FINDING ZYGOSITY INFO 
+
+# get IDs from sample details file
+dx cat "$SAMPLE_DETAILS" | grep $FAM_NUM > temp/temp_fam.txt
+
+# Extract sample IDs for proband, mother and father from sample details
+while IFS=$'\t' read -r ROW; do
+    RELATIONSHIP=$(echo "$ROW" | tr '[:upper:]' '[:lower:]')
+    if echo "$RELATIONSHIP" | grep -q "proband"; then
+        PROBAND=$(echo "$ROW" | cut -f1)
+    elif echo "$RELATIONSHIP" | grep -q "mother"; then
+        MOTHER=$(echo "$ROW" | cut -f1)
+    elif echo "$RELATIONSHIP" | grep -q "father"; then
+        FATHER=$(echo "$ROW" | cut -f1)
+    fi
+done < temp/temp_fam.txt
+
+HEADER=$(head -n 1 temp/temp.txt)
+
+# convert header line into an array of columns
+IFS=$'\t' read -r -a COLUMNS <<< "$HEADER"
+
+# initialise GT column indices to 0 (for duo/singleton handling)
+PROBAND_COL=0; MOTHER_COL=0; FATHER_COL=0
+GT_PROBAND="GT (${PROBAND})"
+GT_MOTHER="GT (${MOTHER})"
+GT_FATHER="GT (${FATHER})"
+
+# Find and assign indexes of GT columns
+for i in "${!COLUMNS[@]}"; do
+    COLNAME="${COLUMNS[$i]}"
+    if [ "$COLNAME" = "$GT_PROBAND" ]; then
+        PROBAND_COL=$((i+1)) # bash array indices are zero-based but awk uses one-based indexing, so "i+1"
+    elif [ "$COLNAME" = "$GT_MOTHER" ]; then
+        MOTHER_COL=$((i+1))
+    elif [ "$COLNAME" = "$GT_FATHER" ]; then
+        FATHER_COL=$((i+1))
+    fi
+done
+
+echo "GT columns: $PROBAND_COL, $MOTHER_COL, $FATHER_COL (proband, mother, father)" >> log.txt
+
+row_number=0
+# starting from 2nd line (skipping header row), store the entire row as variable "ROW" (no splitting on spaces, tabs or backslashes) and loop through rows.
+tail -n +2 temp/temp.txt | while IFS= read -r ROW; do
+    ((row_number++))
+
+    # Extract genotypes from current row. (If missing (column = 0), set to empty string)
+    [[ $PROBAND_COL -gt 0 ]] && PROBAND_GT=$(echo "$ROW" | cut -f"$PROBAND_COL") || PROBAND_GT=""
+    [[ $MOTHER_COL -gt 0 ]] && MOTHER_GT=$(echo "$ROW" | cut -f"$MOTHER_COL") || MOTHER_GT=""
+    [[ $FATHER_COL -gt 0 ]] && FATHER_GT=$(echo "$ROW" | cut -f"$FATHER_COL") || FATHER_GT=""
+
+    # Extract annotation info for the variant from annot.txt
+    ANNOT_ROW=$(sed -n "${row_number}p" temp/temp_annot.txt)
+    CHR=$(echo "$ANNOT_ROW" | awk '{print $1}')
+    START=$(echo "$ANNOT_ROW" | awk '{print $3}')
+    END=$(echo "$ANNOT_ROW" | awk '{print $4}')
+
+    # Convert to zygosity - run predefined extract_zygosity function
+    PROBAND_Z=$(extract_zygosity "$PROBAND_GT")
+    MOTHER_Z=$(extract_zygosity "$MOTHER_GT")
+    FATHER_Z=$(extract_zygosity "$FATHER_GT")
+
+    # Write to BED files
+    echo -e "$CHR\t$START\t$END\t$PROBAND_Z" >> "$BED_DIR/proband.bed"
+    echo -e "$CHR\t$START\t$END\t$MOTHER_Z" >> "$BED_DIR/mother.bed"
+    echo -e "$CHR\t$START\t$END\t$FATHER_Z" >> "$BED_DIR/father.bed"
+done
 
 
-elif $ANNOT_TYPE = "vep" do;
-
-
-else
-
-
+elif [[ "$ANNOT_TYPE" == "vep" ]]; then
 
 ################
 #   VEP
@@ -96,7 +175,6 @@ else
 echo "Using VEP annotation file for $FOLDERNO" >> log.txt
 
 # Find VEP file
-
 ANNOTATION_FILE=$(dx find data --name "**$FOLDERNO*.vep.vcf.gz" | grep -oP '\(\K[^)]*(?=\))')
 echo "$ANNOTATION_FILE" >> log.txt
 
@@ -127,28 +205,19 @@ while IFS=$'\t' read -r ROW; do
     fi
 done < temp/temp_fam.txt
 
-# debugging
-echo "Sample IDs:"
-echo "Proband: $PROBAND"
-echo "Mother:  $MOTHER"
-echo "Father:  $FATHER"
-
-# header line
 HEADER=$(head -n 1 temp/temp.txt)
 
 # convert header line into an array of columns
 IFS=$'\t' read -r -a COLUMNS <<< "$HEADER"
 
 # initialise GT column indices to 0 (for duo/singleton handling)
-PROBAND_COL=0
-MOTHER_COL=0
-FATHER_COL=0
+PROBAND_COL=0;MOTHER_COL=0;FATHER_COL=0
 
 # Find and assign indexes of GT columns
 for i in "${!COLUMNS[@]}"; do
     COLNAME="${COLUMNS[$i]}"
     if [ "$COLNAME" = "$PROBAND" ]; then
-        PROBAND_COL=$((i+1)) # bash array indices are zero-based but awk uses one-based indexing, so "i+1"
+        PROBAND_COL=$((i+1)) 
     elif [ "$COLNAME" = "$MOTHER" ]; then
         MOTHER_COL=$((i+1))
     elif [ "$COLNAME" = "$FATHER" ]; then
@@ -178,6 +247,7 @@ read PROBAND_GT MOTHER_GT FATHER_GT < <(
 # WRITE INFO TO BED FILES
 row_number=2 # skip header in temp_annot.txt
 tail -n +2 temp/temp.txt | while IFS= read -r ROW; do 
+    ((row_number++))
 
     # Debugging
     echo "GTs: $PROBAND_GT $MOTHER_GT $FATHER_GT" >> log.txt
@@ -193,22 +263,25 @@ tail -n +2 temp/temp.txt | while IFS= read -r ROW; do
     MOTHER_Z=$(extract_zygosity "$MOTHER_GT")
     FATHER_Z=$(extract_zygosity "$FATHER_GT")
 
-    # Write to BED files:
+    # Write to BED files
     echo -e "$CHR\t$START\t$END\t$PROBAND_Z" >> "$BED_DIR/proband.bed"
     echo -e "$CHR\t$START\t$END\t$MOTHER_Z" >> "$BED_DIR/mother.bed"
     echo -e "$CHR\t$START\t$END\t$FATHER_Z" >> "$BED_DIR/father.bed"
-
-    row_number=$((row_number+1))
 done
 
+else
+    echo "ERROR: Could not detect annotation type for $FOLDERNO" >> stderr
+    continue
+fi
+
 # clean up logs
-EXPECTED_LINES=8 # lines that would be printed per successful run
+EXPECTED_LINES=9 #lines that would be printed per successful run
 ACTUAL_LINES=$(wc -l < log.txt)
 
 if [ "$ACTUAL_LINES" -eq "$EXPECTED_LINES" ]; then
     echo "$FOLDERNO" >> success.txt
 else
-    cat log.txt >&2
+    cat log.txt >> stderr
 fi
 
 > log.txt # wipe log file for the next sample

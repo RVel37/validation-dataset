@@ -4,3 +4,4 @@
 *.tsv
 example_data/
 scrap-delete
+stderr
