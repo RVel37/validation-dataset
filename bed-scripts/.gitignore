@@ -4,4 +4,4 @@
 *.tsv
 example_data/
 scrap-delete
-vep.sh
+stderr

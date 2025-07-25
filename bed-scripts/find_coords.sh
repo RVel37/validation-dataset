@@ -128,9 +128,6 @@ tail -n +2 temp/temp.txt | while IFS= read -r ROW; do   # starting from 2nd line
         if [[ $MOTHER_COL -gt 0 ]]; then MOTHER_GT=$(echo "$ROW" | cut -f"$MOTHER_COL"); else MOTHER_GT=""; fi
         if [[ $FATHER_COL -gt 0 ]]; then FATHER_GT=$(echo "$ROW" | cut -f"$FATHER_COL"); else FATHER_GT=""; fi
 
-        # Debugging
-        echo "GTs: $PROBAND_GT $MOTHER_GT $FATHER_GT"
-
         # Get annotation for this row - extract the corresponding line from temp_annot.txt which has annotation info for the variant
 
         ANNOT_ROW=$(sed -n "${row_number}p" temp/temp_annot.txt) # extract the specific row number (should match temp.txt). (sed -n = suppress automatic printing, p = print only this specific line)
