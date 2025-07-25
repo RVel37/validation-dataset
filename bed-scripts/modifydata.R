@@ -11,7 +11,7 @@
 library(tidyverse)
 
 # import data
-data <- R14_WGS_variants_for_validation
+data <- R14_WGS_variants_for_validation.csv
 
 # check data
 glimpse(data)
@@ -94,34 +94,30 @@ female_proband <- data3 %>%
     str_to_lower(GENDER)       == "female"
   )
 
-
 # check tables:
 list(
   male_proband   = glimpse(male_proband),
   female_proband = glimpse(female_proband),
-
 )
 
-### now get coords via the bash script
-
 #--------------------------------------------
-# CREATE BED: TO BE RUN AFTER GETTING COORDS
+# RUN BASH SCRIPT TO GET COORDS
 #--------------------------------------------
-# BED file for BAMSurgeon contains columns:
-# CHROM START END AF  ALT_ALLELE
+# The bash script will create three bed files: proband.bed, mother.bed, father.bed.
 
+# Create output dirs
+dir.create("output")
+dir.create("output/male")
+dir.create("output/female")
 
-# Create BED
-bed <- final_data %>%
-  select(CHROM, START, END, AF, ALT_ALLELE) %>%
-  drop_na() %>%
-  arrange(CHROM, START)
+# save tables as TSVs
+write_tsv(male_proband, "output/male/input.tsv")
+write_tsv(female_proband, "output/female/input.tsv")
 
+# Run script for male proband
+message("Running annotation_to_bed.sh for male proband...")
+system("bash annotation_to_bed.sh output/male/input.tsv output/male")
 
-# EXPORT
-output_bed <- "bamsurgeonInput.bed"
-write_tsv(bed, output_bed, col_names = TRUE)
-
-message("Wrote ", nrow(bed), " variants to ", output_bed)
-
-
+# Run script for female proband
+message("Running annotation_to_bed.sh for female proband...")
+system("bash annotation_to_bed.sh output/female/input.tsv output/female")

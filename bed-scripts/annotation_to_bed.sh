@@ -64,6 +64,7 @@ tail -n +2 "$INPUT_FILE" | while IFS=$'\t' read -r ROW; do
     FOLDERNO=$(echo "$ROW" | cut -f1)
     CDNACHANGE=$(echo "$ROW" | cut -f3)
     GENENAME=$(echo "$ROW" | cut -f4)
+    ALT_ALLELE=$(echo "$ROW" | cut -f8)
     
     printf "\nProcessing folder: %s, %s, %s\n" "$FOLDERNO" "$GENENAME" "$CDNACHANGE" >> log.txt
 
@@ -173,9 +174,9 @@ tail -n +2 temp/temp.txt | while IFS= read -r ROW; do
     echo "Sample info extracted, writing to BEDfile" >> log.txt
 
     # Write to BED files
-    echo -e "$CHR\t$START\t$END\t$PROBAND_Z" >> "$BED_DIR/proband.bed"
-    echo -e "$CHR\t$START\t$END\t$MOTHER_Z" >> "$BED_DIR/mother.bed"
-    echo -e "$CHR\t$START\t$END\t$FATHER_Z" >> "$BED_DIR/father.bed"
+    echo -e "$CHR\t$START\t$END\t$PROBAND_Z\t$ALT_ALLELE" >> "$BED_DIR/proband.bed"
+    echo -e "$CHR\t$START\t$END\t$MOTHER_Z\t$ALT_ALLELE" >> "$BED_DIR/mother.bed"
+    echo -e "$CHR\t$START\t$END\t$FATHER_Z\t$ALT_ALLELE" >> "$BED_DIR/father.bed"
 done
 
 
@@ -239,24 +240,6 @@ done
 
 echo "GT columns: $PROBAND_COL, $MOTHER_COL, $FATHER_COL (proband, mother, father)" >> log.txt
 
-# extract genotypes from GT field in each sample column and assign
-# this is done by splitting each sample column into a temporary array divided by colons
-# read PROBAND_GT MOTHER_GT FATHER_GT < <(
-#     awk -F'\t' -v p="$PROBAND_COL" -v m="$MOTHER_COL" -v f="$FATHER_COL" '
-#     NR==2 {
-#         if (p>0) {split($p, p_split, ":"); proband_gt = p_split[1]}
-#         else {proband_gt = ""}
-
-#         if (m>0) {split($m, m_split, ":"); mother_gt = m_split[1]}
-#         else {mother_gt = ""}
-
-#         if (f>0) {split($f, f_split, ":"); father_gt = f_split[1]}
-#         else {father_gt = ""}
-
-#         print proband_gt, mother_gt, father_gt
-#     }' temp/temp.txt
-# )
-
 # WRITE INFO TO BED FILES
 GENOTYPE_OK=true
 row_number=0 
@@ -292,9 +275,9 @@ tail -n +2 temp/temp.txt | while IFS= read -r ROW; do
     echo "Sample info extracted, writing to BEDfile" >> log.txt
 
     # Write to BED files
-    echo -e "$CHR\t$START\t$END\t$PROBAND_Z" >> "$BED_DIR/proband.bed"
-    echo -e "$CHR\t$START\t$END\t$MOTHER_Z" >> "$BED_DIR/mother.bed"
-    echo -e "$CHR\t$START\t$END\t$FATHER_Z" >> "$BED_DIR/father.bed"
+    echo -e "$CHR\t$START\t$END\t$PROBAND_Z\t$ALT_ALLELE" >> "$BED_DIR/proband.bed"
+    echo -e "$CHR\t$START\t$END\t$MOTHER_Z\t$ALT_ALLELE" >> "$BED_DIR/mother.bed"
+    echo -e "$CHR\t$START\t$END\t$FATHER_Z\t$ALT_ALLELE" >> "$BED_DIR/father.bed"
 done
 
 else
