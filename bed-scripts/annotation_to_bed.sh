@@ -148,6 +148,13 @@ tail -n +2 temp/temp.txt | while IFS= read -r ROW; do
     [[ $MOTHER_COL -gt 0 ]] && MOTHER_GT=$(echo "$ROW" | cut -f"$MOTHER_COL") || MOTHER_GT=""
     [[ $FATHER_COL -gt 0 ]] && FATHER_GT=$(echo "$ROW" | cut -f"$FATHER_COL") || FATHER_GT=""
 
+    echo "GTs: $PROBAND_GT $MOTHER_GT $FATHER_GT" >> log.txt
+
+    # Extract genotypes from current row. (If missing (column = 0), set to empty string)
+    [[ $PROBAND_COL -gt 0 ]] && PROBAND_GT=$(echo "$ROW" | cut -f"$PROBAND_COL") || PROBAND_GT=""
+    [[ $MOTHER_COL -gt 0 ]] && MOTHER_GT=$(echo "$ROW" | cut -f"$MOTHER_COL") || MOTHER_GT=""
+    [[ $FATHER_COL -gt 0 ]] && FATHER_GT=$(echo "$ROW" | cut -f"$FATHER_COL") || FATHER_GT=""
+
     # Extract annotation info for the variant from annot.txt
     ANNOT_ROW=$(sed -n "${row_number}p" temp/temp_annot.txt)
     CHR=$(echo "$ANNOT_ROW" | awk '{print $1}')
@@ -175,7 +182,7 @@ elif [[ "$ANNOT_TYPE" == "vep" ]]; then
 echo "Using VEP annotation file for $FOLDERNO" >> log.txt
 
 # Find VEP file
-ANNOTATION_FILE=$(dx find data --name "**$FOLDERNO*.vep.vcf.gz" | grep -oP '\(\K[^)]*(?=\))')
+ANNOTATION_FILE=$(dx find data --name "*$FOLDERNO*.vep.vcf.gz" | grep -oP '\(\K[^)]*(?=\))')
 echo "$ANNOTATION_FILE" >> log.txt
 
 # zcat and wipe metadata lines, then grep for variants that match gene name and DNA change
@@ -184,8 +191,7 @@ dx cat "$ANNOTATION_FILE" | zcat | \
     '/^#CHROM/ {print; next} !/^#/ && $0 ~ gene && $0 ~ cdna' > temp/temp.txt
 
 # get relevant rows from temp.txt and pipe into temp_annot.txt
-echo -e "chr\tgene\tstart\tend\tcdna" > temp/temp_annot.txt # custom header (NOT SURE IF NEEDED)
-awk -F '\t' -v gene="$GENENAME" -v cdna="$CDNACHANGE" '!/^#/ {print $1, gene, $2, $2, cdna}' temp/temp.txt >> temp/temp_annot.txt
+awk -F '\t' -v gene="$GENENAME" -v cdna="$CDNACHANGE" '!/^#/ {print $1, gene, $2, $2, cdna}' temp/temp.txt > temp/temp_annot.txt
 
 # FINDING ZYGOSITY INFO
 
@@ -244,12 +250,12 @@ read PROBAND_GT MOTHER_GT FATHER_GT < <(
         print proband_gt, mother_gt, father_gt
     }' temp/temp.txt
 )
+
 # WRITE INFO TO BED FILES
-row_number=2 # skip header in temp_annot.txt
+row_number=0 
 tail -n +2 temp/temp.txt | while IFS= read -r ROW; do 
     ((row_number++))
 
-    # Debugging
     echo "GTs: $PROBAND_GT $MOTHER_GT $FATHER_GT" >> log.txt
 
     # Extract annotation info for the variant from annot.txt
@@ -275,7 +281,7 @@ else
 fi
 
 # clean up logs
-EXPECTED_LINES=9 #lines that would be printed per successful run
+EXPECTED_LINES=8 #lines that would be printed per successful run
 ACTUAL_LINES=$(wc -l < log.txt)
 
 if [ "$ACTUAL_LINES" -eq "$EXPECTED_LINES" ]; then
