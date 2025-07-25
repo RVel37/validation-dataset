@@ -74,7 +74,6 @@ echo "Family number: $FAM_NUM" >> log.txt
 
 
 ANNOT_TYPE=$(alamut_or_vep "$FOLDERNO")
-echo "Annotation type = $ANNOT_TYPE" >> log.txt
 
 # if-else loop choosing between either alamut or vep processing
 
@@ -84,7 +83,7 @@ if [[ "$ANNOT_TYPE" == "alamut" ]]; then
 #   ALAMUT
 ################
 
-echo "Using ALAMUT annotation file for $FOLDERNO" >> log.txt
+echo "Processing $ANNOT_TYPE annotation file for $FOLDERNO..." >> log.txt
 
 # Find Alamut file
 ANNOTATION_FILE=$(dx find data --name "*$FOLDERNO*.annotated.txt" | grep -oP '\(\K[^)]*(?=\))')
@@ -94,7 +93,7 @@ echo "$ANNOTATION_FILE" >> log.txt
 dx cat "$ANNOTATION_FILE" | awk -v gene="$GENENAME" -v cdna="$CDNACHANGE" 'NR==1 || ($0 ~ gene && $0 ~ cdna)' > temp/temp.txt
 
 # get relevant rows: chr.no, gene name, start, end, c.nomen 
-awk -F '\t' '{print $2, $7, $20, $21, $25}' temp/temp.txt > temp/temp_annot.txt
+tail -n +2 temp/temp.txt | awk -F '\t' '{print $2, $7, $20, $21, $25}' > temp/temp_annot.txt
 
 # FINDING ZYGOSITY INFO 
 
@@ -138,11 +137,12 @@ done
 
 echo "GT columns: $PROBAND_COL, $MOTHER_COL, $FATHER_COL (proband, mother, father)" >> log.txt
 
+GENOTYPE_OK=true
 row_number=0
 # starting from 2nd line (skipping header row), store the entire row as variable "ROW" (no splitting on spaces, tabs or backslashes) and loop through rows.
 tail -n +2 temp/temp.txt | while IFS= read -r ROW; do
     ((row_number++))
-
+    
     # Extract genotypes from current row. (If missing (column = 0), set to empty string)
     [[ $PROBAND_COL -gt 0 ]] && PROBAND_GT=$(echo "$ROW" | cut -f"$PROBAND_COL") || PROBAND_GT=""
     [[ $MOTHER_COL -gt 0 ]] && MOTHER_GT=$(echo "$ROW" | cut -f"$MOTHER_COL") || MOTHER_GT=""
@@ -150,10 +150,14 @@ tail -n +2 temp/temp.txt | while IFS= read -r ROW; do
 
     echo "GTs: $PROBAND_GT $MOTHER_GT $FATHER_GT" >> log.txt
 
-    # Extract genotypes from current row. (If missing (column = 0), set to empty string)
-    [[ $PROBAND_COL -gt 0 ]] && PROBAND_GT=$(echo "$ROW" | cut -f"$PROBAND_COL") || PROBAND_GT=""
-    [[ $MOTHER_COL -gt 0 ]] && MOTHER_GT=$(echo "$ROW" | cut -f"$MOTHER_COL") || MOTHER_GT=""
-    [[ $FATHER_COL -gt 0 ]] && FATHER_GT=$(echo "$ROW" | cut -f"$FATHER_COL") || FATHER_GT=""
+    # Check for NA/missing genotypes - if so, log and don't write to BED.
+    if { [[ $PROBAND_COL -gt 0 && ( -z "$PROBAND_GT" || "$PROBAND_GT" == "NA" ) ]] || \
+         [[ $MOTHER_COL -gt 0 && ( -z "$MOTHER_GT" || "$MOTHER_GT" == "NA" ) ]] || \
+         [[ $FATHER_COL -gt 0 && ( -z "$FATHER_GT" || "$FATHER_GT" == "NA" ) ]]; }; then
+        GENOTYPE_OK=false
+        echo "Skipping row $row_number in $FOLDERNO - invalid genotypes!" >> stderr
+        continue  # skip to next variant
+    fi
 
     # Extract annotation info for the variant from annot.txt
     ANNOT_ROW=$(sed -n "${row_number}p" temp/temp_annot.txt)
@@ -165,6 +169,8 @@ tail -n +2 temp/temp.txt | while IFS= read -r ROW; do
     PROBAND_Z=$(extract_zygosity "$PROBAND_GT")
     MOTHER_Z=$(extract_zygosity "$MOTHER_GT")
     FATHER_Z=$(extract_zygosity "$FATHER_GT")
+
+    echo "Sample info extracted, writing to BEDfile" >> log.txt
 
     # Write to BED files
     echo -e "$CHR\t$START\t$END\t$PROBAND_Z" >> "$BED_DIR/proband.bed"
@@ -179,7 +185,7 @@ elif [[ "$ANNOT_TYPE" == "vep" ]]; then
 #   VEP
 ################
 
-echo "Using VEP annotation file for $FOLDERNO" >> log.txt
+echo "Processing $ANNOT_TYPE annotation file for $FOLDERNO..." >> log.txt
 
 # Find VEP file
 ANNOTATION_FILE=$(dx find data --name "*$FOLDERNO*.vep.vcf.gz" | grep -oP '\(\K[^)]*(?=\))')
@@ -235,28 +241,42 @@ echo "GT columns: $PROBAND_COL, $MOTHER_COL, $FATHER_COL (proband, mother, fathe
 
 # extract genotypes from GT field in each sample column and assign
 # this is done by splitting each sample column into a temporary array divided by colons
-read PROBAND_GT MOTHER_GT FATHER_GT < <(
-    awk -F'\t' -v p="$PROBAND_COL" -v m="$MOTHER_COL" -v f="$FATHER_COL" '
-    NR==2 {
-        if (p>0) {split($p, p_split, ":"); proband_gt = p_split[1]}
-        else {proband_gt = ""}
+# read PROBAND_GT MOTHER_GT FATHER_GT < <(
+#     awk -F'\t' -v p="$PROBAND_COL" -v m="$MOTHER_COL" -v f="$FATHER_COL" '
+#     NR==2 {
+#         if (p>0) {split($p, p_split, ":"); proband_gt = p_split[1]}
+#         else {proband_gt = ""}
 
-        if (m>0) {split($m, m_split, ":"); mother_gt = m_split[1]}
-        else {mother_gt = ""}
+#         if (m>0) {split($m, m_split, ":"); mother_gt = m_split[1]}
+#         else {mother_gt = ""}
 
-        if (f>0) {split($f, f_split, ":"); father_gt = f_split[1]}
-        else {father_gt = ""}
+#         if (f>0) {split($f, f_split, ":"); father_gt = f_split[1]}
+#         else {father_gt = ""}
 
-        print proband_gt, mother_gt, father_gt
-    }' temp/temp.txt
-)
+#         print proband_gt, mother_gt, father_gt
+#     }' temp/temp.txt
+# )
 
 # WRITE INFO TO BED FILES
+GENOTYPE_OK=true
 row_number=0 
 tail -n +2 temp/temp.txt | while IFS= read -r ROW; do 
     ((row_number++))
 
+    # Extract genotypes from current row (first sub-field in colon-separated genotype field)
+    [[ $PROBAND_COL -gt 0 ]] && PROBAND_GT=$(echo "$ROW" | cut -f"$PROBAND_COL" | cut -d':' -f1) || PROBAND_GT=""
+    [[ $MOTHER_COL -gt 0 ]] && MOTHER_GT=$(echo "$ROW" | cut -f"$MOTHER_COL" | cut -d':' -f1) || MOTHER_GT=""
+    [[ $FATHER_COL -gt 0 ]] && FATHER_GT=$(echo "$ROW" | cut -f"$FATHER_COL" | cut -d':' -f1) || FATHER_GT=""
+
     echo "GTs: $PROBAND_GT $MOTHER_GT $FATHER_GT" >> log.txt
+
+    if { [[ $PROBAND_COL -gt 0 && ( -z "$PROBAND_GT" || "$PROBAND_GT" == "NA" ) ]] || \
+         [[ $MOTHER_COL -gt 0 && ( -z "$MOTHER_GT" || "$MOTHER_GT" == "NA" ) ]] || \
+         [[ $FATHER_COL -gt 0 && ( -z "$FATHER_GT" || "$FATHER_GT" == "NA" ) ]]; }; then
+        GENOTYPE_OK=false
+        echo "Skipping row $row_number in $FOLDERNO - invalid genotypes!" >> stderr
+        continue  # skip to next variant
+    fi
 
     # Extract annotation info for the variant from annot.txt
     ANNOT_ROW=$(sed -n "${row_number}p" temp/temp_annot.txt)
@@ -268,6 +288,8 @@ tail -n +2 temp/temp.txt | while IFS= read -r ROW; do
     PROBAND_Z=$(extract_zygosity "$PROBAND_GT")
     MOTHER_Z=$(extract_zygosity "$MOTHER_GT")
     FATHER_Z=$(extract_zygosity "$FATHER_GT")
+
+    echo "Sample info extracted, writing to BEDfile" >> log.txt
 
     # Write to BED files
     echo -e "$CHR\t$START\t$END\t$PROBAND_Z" >> "$BED_DIR/proband.bed"
@@ -281,10 +303,11 @@ else
 fi
 
 # clean up logs
-EXPECTED_LINES=8 #lines that would be printed per successful run
+MIN_EXPECTED_LINES=8 # minimum lines that would be printed per successful run (accounting for duplicates in annotation file)
 ACTUAL_LINES=$(wc -l < log.txt)
 
-if [ "$ACTUAL_LINES" -eq "$EXPECTED_LINES" ]; then
+# if script fails partway through processing a sample, send this to stderr
+if [ "$ACTUAL_LINES" -ge "$MIN_EXPECTED_LINES" ]; then
     echo "$FOLDERNO" >> success.txt
 else
     cat log.txt >> stderr
