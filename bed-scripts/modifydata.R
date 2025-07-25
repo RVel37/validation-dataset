@@ -101,23 +101,26 @@ list(
 )
 
 #--------------------------------------------
-# RUN BASH SCRIPT TO GET COORDS
+# RUN BASH SCRIPT TO GET CO-ORDS (OPTIONAL)
 #--------------------------------------------
 # The bash script will create three bed files: proband.bed, mother.bed, father.bed.
 
-# Create output dirs
-dir.create("output")
-dir.create("output/male")
-dir.create("output/female")
+### this would require adding: ###
+# BED_DIR=${2}
 
-# save tables as TSVs
-write_tsv(male_proband, "output/male/input.tsv")
-write_tsv(female_proband, "output/female/input.tsv")
+# # Create output dirs
+# dir.create("output")
+# dir.create("output/male")
+# dir.create("output/female")
 
-# Run script for male proband
-message("Running annotation_to_bed.sh for male proband...")
-system("bash annotation_to_bed.sh output/male/input.tsv output/male")
+# # save tables as TSVs
+# write_tsv(male_proband, "output/male/input.tsv")
+# write_tsv(female_proband, "output/female/input.tsv")
 
-# Run script for female proband
-message("Running annotation_to_bed.sh for female proband...")
-system("bash annotation_to_bed.sh output/female/input.tsv output/female")
+# # Run script for male proband
+# message("Running annotation_to_bed.sh for male proband...")
+# system("bash annotation_to_bed.sh output/male/input.tsv output/male")
+
+# # Run script for female proband
+# message("Running annotation_to_bed.sh for female proband...")
+# system("bash annotation_to_bed.sh output/female/input.tsv output/female")
