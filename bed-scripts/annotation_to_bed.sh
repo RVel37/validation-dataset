@@ -10,7 +10,6 @@
 #   Outputs: bedfiles/proband.bed; bedfiles/mother.bed; bedfiles/father.bed
 
 set -o pipefail # avoid silent fails/hanging
-#trap 'echo "ERROR at line $LINENO: $BASH_COMMAND"' >> debug.log
 
 INPUT_FILE=${1}
 
@@ -69,30 +68,20 @@ write_bed() {
     local father_z=$(extract_zygosity "$FATHER_GT")
 
     for z in "$proband_z" "$mother_z" "$father_z"; do
-        if [[ "$z" == "NA" ]]; then
-        echo "Skipping row $row_number in $FOLDERNO - zygosity is NA"
-        return 1
-    fi
+        if [[ "$z" == "NA" || -z "$z" ]]; then
+            echo "Skipping row $row_number in $FOLDERNO - zygosity is NA" >> stderr
+            return 1
+        fi
     done
-    
-    echo "Sample info extracted successfully" >> log.txt
+
+    echo "Sample info extracted successfully, appending to BAM files" >> log.txt
 
     local samples=(proband mother father)
     local zygosities=("$proband_z" "$mother_z" "$father_z")
 
-    # write to temp files first
     for i in "${!samples[@]}"; do
-        echo -e "$CHR\t$START\t$END\t${zygosities[i]}\t$ALT_ALLELE" >> "temp/${samples[i]}.tmp"
+        echo -e "$CHR\t$START\t$END\t${zygosities[i]}\t$ALT_ALLELE" >> "$BED_DIR/${samples[i]}.bed"
     done
-
-    # remove duplicates
-    for sample in "${samples[@]}"; do
-        sort -u "temp/${sample}.tmp" >> "$BED_DIR/${sample}.bed"
-    done
-
-    > temp/proband.tmp
-    > temp/mother.tmp
-    >temp/father.tmp
 
     return 0
 }
@@ -323,4 +312,14 @@ fi
 
 > log.txt # wipe log file for the next sample
 
+done
+
+printf "\nFinal deduplication of BED files...\n"
+
+for sample in proband mother father; do
+    BED_FILE="$BED_DIR/${sample}.bed"
+
+    if [[ -f "$BED_FILE" ]]; then
+        sort -u "$BED_FILE" -o "$BED_FILE" # remove duplicated entries
+    fi
 done
