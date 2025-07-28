@@ -9,10 +9,14 @@
 #   Input: input_file.csv
 #   Outputs: bedfiles/proband.bed; bedfiles/mother.bed; bedfiles/father.bed
 
+set -euo pipefail # avoid silent fails
 
-INPUT_FILE=${1} 
+INPUT_FILE=${1}
+
 # sample details file exists on DNAnexus; lists all samples processed
 SAMPLE_DETAILS="Resources:/sample_details/sample_details.tsv"
+dx cat "$SAMPLE_DETAILS" > temp/sample_details_cached.tsv
+
 # output directory
 BED_DIR="bedfiles"
 
@@ -58,6 +62,29 @@ alamut_or_vep() {
     fi
 }
 
+write_bed() {
+    local proband_z=$(extract_zygosity "$PROBAND_GT")
+    local mother_z=$(extract_zygosity "$MOTHER_GT")
+    local father_z=$(extract_zygosity "$FATHER_GT")
+
+    if [[ "$PROBAND_Z" == "NA" || "$MOTHER_Z" == "NA" || "$FATHER_Z" == "NA" ]]; then
+        echo "Skipping row $row_number in $FOLDERNO - zygosity is NA!" >> stderr
+        continue
+    fi
+
+    echo "Sample info extracted, writing to temp files" >> log.txt
+
+    echo -e "$CHR\t$START\t$END\t$proband_z\t$ALT_ALLELE" >> temp/proband.tmp
+    echo -e "$CHR\t$START\t$END\t$mother_z\t$ALT_ALLELE" >> temp/mother.tmp
+    echo -e "$CHR\t$START\t$END\t$father_z\t$ALT_ALLELE" >> temp/father.tmp
+
+    sort -u temp/proband.tmp >> "$BED_DIR/proband.bed"
+    sort -u temp/mother.tmp >> "$BED_DIR/mother.bed"
+    sort -u temp/father.tmp >> "$BED_DIR/father.bed"
+
+    return 0
+}
+
 
 # extract columns from the dataset
 tail -n +2 "$INPUT_FILE" | while IFS=$'\t' read -r ROW; do
@@ -69,7 +96,7 @@ tail -n +2 "$INPUT_FILE" | while IFS=$'\t' read -r ROW; do
     printf "\nProcessing folder: %s, %s, %s\n" "$FOLDERNO" "$GENENAME" "$CDNACHANGE" >> log.txt
 
 # get family number from sample details e.g. F08796
-FAM_NUM=$(dx cat "$SAMPLE_DETAILS" | grep "$FOLDERNO" | cut -f2)
+FAM_NUM=$(cat temp/sample_details_cached.tsv | grep "$FOLDERNO" | cut -f2)
 
 echo "Family number: $FAM_NUM" >> log.txt
 
@@ -99,7 +126,7 @@ tail -n +2 temp/temp.txt | awk -F '\t' '{print $2, $7, $20, $21, $25}' > temp/te
 # FINDING ZYGOSITY INFO 
 
 # get IDs from sample details file
-dx cat "$SAMPLE_DETAILS" | grep $FAM_NUM > temp/temp_fam.txt
+cat temp/sample_details_cached.tsv | grep $FAM_NUM > temp/temp_fam.txt
 
 # Extract sample IDs for proband, mother and father from sample details
 while IFS=$'\t' read -r ROW; do
@@ -141,7 +168,7 @@ echo "GT columns: $PROBAND_COL, $MOTHER_COL, $FATHER_COL (proband, mother, fathe
 GENOTYPE_OK=true
 row_number=0
 # starting from 2nd line (skipping header row), store the entire row as variable "ROW" (no splitting on spaces, tabs or backslashes) and loop through rows.
-tail -n +2 temp/temp.txt | while IFS= read -r ROW; do
+while IFS= read -r ROW; do
     ((row_number++))
     
     # Extract genotypes from current row. (If missing (column = 0), set to empty string)
@@ -166,18 +193,11 @@ tail -n +2 temp/temp.txt | while IFS= read -r ROW; do
     START=$(echo "$ANNOT_ROW" | awk '{print $3}')
     END=$(echo "$ANNOT_ROW" | awk '{print $4}')
 
-    # Convert to zygosity - run predefined extract_zygosity function
-    PROBAND_Z=$(extract_zygosity "$PROBAND_GT")
-    MOTHER_Z=$(extract_zygosity "$MOTHER_GT")
-    FATHER_Z=$(extract_zygosity "$FATHER_GT")
+    if ! write_bed; then
+        continue
+    fi
 
-    echo "Sample info extracted, writing to BEDfile" >> log.txt
-
-    # Write to BED files
-    echo -e "$CHR\t$START\t$END\t$PROBAND_Z\t$ALT_ALLELE" >> "$BED_DIR/proband.bed"
-    echo -e "$CHR\t$START\t$END\t$MOTHER_Z\t$ALT_ALLELE" >> "$BED_DIR/mother.bed"
-    echo -e "$CHR\t$START\t$END\t$FATHER_Z\t$ALT_ALLELE" >> "$BED_DIR/father.bed"
-done
+done < <(tail -n +2 temp/temp.txt)
 
 
 elif [[ "$ANNOT_TYPE" == "vep" ]]; then
@@ -203,7 +223,7 @@ awk -F '\t' -v gene="$GENENAME" -v cdna="$CDNACHANGE" '!/^#/ {print $1, gene, $2
 # FINDING ZYGOSITY INFO
 
 # get IDs from sample details file
-dx cat "$SAMPLE_DETAILS" | grep $FAM_NUM > temp/temp_fam.txt
+cat temp/sample_details_cached.tsv | grep $FAM_NUM > temp/temp_fam.txt
 
 # Extract sample IDs for proband, mother and father from sample details
 while IFS=$'\t' read -r ROW; do
@@ -243,7 +263,7 @@ echo "GT columns: $PROBAND_COL, $MOTHER_COL, $FATHER_COL (proband, mother, fathe
 # WRITE INFO TO BED FILES
 GENOTYPE_OK=true
 row_number=0 
-tail -n +2 temp/temp.txt | while IFS= read -r ROW; do 
+while IFS= read -r ROW; do 
     ((row_number++))
 
     # Extract genotypes from current row (first sub-field in colon-separated genotype field)
@@ -267,18 +287,11 @@ tail -n +2 temp/temp.txt | while IFS= read -r ROW; do
     START=$(echo "$ANNOT_ROW" | awk '{print $3}')
     END=$(echo "$ANNOT_ROW" | awk '{print $4}')
 
-    # Convert to zygosity - run predefined extract_zygosity function
-    PROBAND_Z=$(extract_zygosity "$PROBAND_GT")
-    MOTHER_Z=$(extract_zygosity "$MOTHER_GT")
-    FATHER_Z=$(extract_zygosity "$FATHER_GT")
+    if ! write_bed; then
+        continue
+    fi
 
-    echo "Sample info extracted, writing to BEDfile" >> log.txt
-
-    # Write to BED files
-    echo -e "$CHR\t$START\t$END\t$PROBAND_Z\t$ALT_ALLELE" >> "$BED_DIR/proband.bed"
-    echo -e "$CHR\t$START\t$END\t$MOTHER_Z\t$ALT_ALLELE" >> "$BED_DIR/mother.bed"
-    echo -e "$CHR\t$START\t$END\t$FATHER_Z\t$ALT_ALLELE" >> "$BED_DIR/father.bed"
-done
+done < <(tail -n +2 temp/temp.txt)
 
 else
     echo "ERROR: Could not detect annotation type for $FOLDERNO" >> stderr
@@ -286,7 +299,7 @@ else
 fi
 
 # clean up logs
-MIN_EXPECTED_LINES=8 # minimum lines that would be printed per successful run (accounting for duplicates in annotation file)
+MIN_EXPECTED_LINES=8 # minimum lines that would be printed per successful run (accounting for duplicates)
 ACTUAL_LINES=$(wc -l < log.txt)
 
 # if script fails partway through processing a sample, send this to stderr
