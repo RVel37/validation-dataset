@@ -3,6 +3,7 @@
 *.txt
 *.tsv
 *.csv
+*.tmp
 example_data/
 scrap-delete
 stderr

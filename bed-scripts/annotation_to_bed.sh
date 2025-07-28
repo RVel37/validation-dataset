@@ -9,7 +9,8 @@
 #   Input: input_file.csv
 #   Outputs: bedfiles/proband.bed; bedfiles/mother.bed; bedfiles/father.bed
 
-set -euo pipefail # avoid silent fails
+set -o pipefail # avoid silent fails/hanging
+#trap 'echo "ERROR at line $LINENO: $BASH_COMMAND"' >> debug.log
 
 INPUT_FILE=${1}
 
@@ -67,20 +68,31 @@ write_bed() {
     local mother_z=$(extract_zygosity "$MOTHER_GT")
     local father_z=$(extract_zygosity "$FATHER_GT")
 
-    if [[ "$PROBAND_Z" == "NA" || "$MOTHER_Z" == "NA" || "$FATHER_Z" == "NA" ]]; then
-        echo "Skipping row $row_number in $FOLDERNO - zygosity is NA!" >> stderr
-        continue
+    for z in "$proband_z" "$mother_z" "$father_z"; do
+        if [[ "$z" == "NA" ]]; then
+        echo "Skipping row $row_number in $FOLDERNO - zygosity is NA"
+        return 1
     fi
+    done
+    
+    echo "Sample info extracted successfully" >> log.txt
 
-    echo "Sample info extracted, writing to temp files" >> log.txt
+    local samples=(proband mother father)
+    local zygosities=("$proband_z" "$mother_z" "$father_z")
 
-    echo -e "$CHR\t$START\t$END\t$proband_z\t$ALT_ALLELE" >> temp/proband.tmp
-    echo -e "$CHR\t$START\t$END\t$mother_z\t$ALT_ALLELE" >> temp/mother.tmp
-    echo -e "$CHR\t$START\t$END\t$father_z\t$ALT_ALLELE" >> temp/father.tmp
+    # write to temp files first
+    for i in "${!samples[@]}"; do
+        echo -e "$CHR\t$START\t$END\t${zygosities[i]}\t$ALT_ALLELE" >> "temp/${samples[i]}.tmp"
+    done
 
-    sort -u temp/proband.tmp >> "$BED_DIR/proband.bed"
-    sort -u temp/mother.tmp >> "$BED_DIR/mother.bed"
-    sort -u temp/father.tmp >> "$BED_DIR/father.bed"
+    # remove duplicates
+    for sample in "${samples[@]}"; do
+        sort -u "temp/${sample}.tmp" >> "$BED_DIR/${sample}.bed"
+    done
+
+    > temp/proband.tmp
+    > temp/mother.tmp
+    >temp/father.tmp
 
     return 0
 }
