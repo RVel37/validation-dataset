@@ -100,27 +100,3 @@ list(
   female_proband = glimpse(female_proband),
 )
 
-#--------------------------------------------
-# RUN BASH SCRIPT TO GET CO-ORDS (OPTIONAL)
-#--------------------------------------------
-# The bash script will create three bed files: proband.bed, mother.bed, father.bed.
-
-### this would require adding: ###
-# BED_DIR=${2}
-
-# # Create output dirs
-# dir.create("output")
-# dir.create("output/male")
-# dir.create("output/female")
-
-# # save tables as TSVs
-# write_tsv(male_proband, "output/male/input.tsv")
-# write_tsv(female_proband, "output/female/input.tsv")
-
-# # Run script for male proband
-# message("Running annotation_to_bed.sh for male proband...")
-# system("bash annotation_to_bed.sh output/male/input.tsv output/male")
-
-# # Run script for female proband
-# message("Running annotation_to_bed.sh for female proband...")
-# system("bash annotation_to_bed.sh output/female/input.tsv output/female")

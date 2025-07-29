@@ -4,6 +4,7 @@
 *.tsv
 *.csv
 *.tmp
+*.log
 example_data/
 scrap-delete
 stderr
