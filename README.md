@@ -2,7 +2,7 @@
 
 > This project is a work-in-progress
 
-The goal of this project is to create a validation cohort using [BamSurgeon](https://github.com/adamewing/bamsurgeon), a tool that enables the introduction of synthetic mutations into existing BAM files. By creating "frankenBAM" samples containing many inserted variants, we can efficiently validate hundreds of variants within a single sample, greatly reducing both time and computational resources required for validation purposes. 
+The goal of this project is to create a validation cohort using [BamSurgeon](https://github.com/adamewing/bamsurgeon), a tool that allows variants to be inserted into preexisting BAM files. By creating these "frankenBAM" samples, we can validate hundreds of variants within a single sample, significantly reducing both the time and computational resources required for validation purposes. 
 
 ## 1. Obtain variant list
 
