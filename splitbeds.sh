@@ -83,6 +83,5 @@ done
     fi
 done
 
-
 # now merge everything
 merge_bams
