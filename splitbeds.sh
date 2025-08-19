@@ -1,21 +1,23 @@
 #!/bin/bash
 set -euo pipefail
- 
+mkdir -p outputs intermediates
+
 ######### FUNCTION DEFINITIONS ###########
- 
  
 # split each bed by chromosome
 split_beds() {
     for bedfile in ./*.bed; do
-        sample=$(basename "$bedfile" .bed)   # father, mother, proband
+        # create basenames father, mother, proband
+        sample=$(basename "$bedfile" .bed)   
         mkdir -p "intermediates/$sample"
- 
+
+        # create output directories for each
         awk -v outdir="intermediates/$sample" \
             '{ print > (outdir "/" $1 ".bed") }' "$bedfile"
     done
 }
- 
-# create small bam files for each intermediate bed
+
+# create bam files corresponding to each intermediate bed file
 create_bams() {
     # variable to prompt function to keep going (otherwise stops after creating a single bam file)
     local progress=false  
@@ -33,6 +35,7 @@ create_bams() {
             echo "Skipping $outbam (already exists)"
             continue
         fi
+        # using ref genome with no chr prefix (to match bam naming convention)
         docker run --rm -d -v "$(pwd)":/data bamsurgeon-env \
             python3 /bamsurgeon/bin/addsnv.py \
                 -v "/data/$i" \
@@ -46,7 +49,7 @@ create_bams() {
     done
     $progress && return 0 || return 1
 }
- 
+
 # merge bam files with samtools
 merge_bams() {
     for sample in father mother proband; do
@@ -59,7 +62,7 @@ merge_bams() {
             samtools index "/data/outputs/${sample}/${sample}_merged.bam"
     done
 }
- 
+
  
 ######### MAIN EXECUTION FLOW ###########
 split_beds
