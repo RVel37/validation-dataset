@@ -17,38 +17,60 @@ split_beds() {
     done
 }
 
-# create bam files corresponding to each intermediate bed file
+
+# create bams corresponding to each intermediate bed
 create_bams() {
-    # variable to prompt function to keep going (otherwise stops after creating a single bam file)
-    local progress=false  
- 
-    # run bamsurgeon for each intermediate
-    for i in intermediates/*/*.bed; do
-        sample=$(basename "$(dirname "$i")")  # father, mother, proband
-        chrom=$(basename "$i" .bed)           # chromosomes (chr1, chr2.. etc)
-        outbam="outputs/$sample/${chrom}.bam" # define output bam
- 
+    # track whether new bam is successfully created
+    progress=false  
+
+    # Loop over each sample (father, mother, proband)
+    for sample_dir in intermediates/*; do
+        sample=$(basename "$sample_dir")
         mkdir -p "outputs/$sample"
- 
-        # if num.bam exists then skip creation of that one
-        if [[ -f "$outbam" ]]; then
-            echo "Skipping $outbam (already exists)"
-            continue
-        fi
-        # using ref genome with no chr prefix (to match bam naming convention)
-        docker run --rm -d -v "$(pwd)":/data bamsurgeon-env \
-            python3 /bamsurgeon/bin/addsnv.py \
-                -v "/data/$i" \
-                -f "/data/bam/WGS_EX2500218_22CFV7LT4.bam" \
-                --aligner mem \
-                --picardjar /picard.jar \
-                -p 8 \
-                -o "/data/outputs/$sample/${chrom}.bam" \
-                -r "/data/genome/GCA_000001405.15_GRCh38_no_alt_analysis_set_plus_hs38d1_maskedGRC_exclusions_v2_no_chr.fasta" </dev/null
-        progress=true    
+
+        # Get all chromosome BED files for this sample
+        beds=( "$sample_dir"/*.bed )
+        total=${#beds[@]} # total number of intermediate beds for sample
+
+        batch_size=4
+        index=0
+
+        # Process BED files in batches
+        while [ $index -lt $total ]; do
+            # Take a batch of up to batch_size files
+            batch=( "${beds[@]:$index:$batch_size}" )
+
+            # Process each BED in the batch sequentially
+            for bedfile in "${batch[@]}"; do
+                chrom=$(basename "$bedfile" .bed)
+                outbam="outputs/$sample/${chrom}.bam"
+
+                if [[ -f "$outbam" ]]; then
+                    echo "Skipping $outbam (already exists)"
+                    continue
+                fi
+                
+                docker run --rm -v "$(pwd)":/data bamsurgeon-env \
+                    python3 /bamsurgeon/bin/addsnv.py \
+                        -v "/data/$bedfile" \
+                        -f "/data/bams/${sample}.bam" \
+                        --aligner mem \
+                        --picardjar /picard.jar \
+                        -p 8 \
+                        -o "/data/outputs/$sample/${chrom}.bam" \
+                        -r "/data/genome/GCA_000001405.15_GRCh38_no_alt_analysis_set_plus_hs38d1_maskedGRC_exclusions_v2_no_chr.fasta" </dev/null
+
+                progress=true
+            done
+
+            # Move to the next batch
+            index=$((index + batch_size))
+        done
     done
+
     $progress && return 0 || return 1
 }
+
 
 # merge bam files with samtools
 merge_bams() {
@@ -66,8 +88,8 @@ merge_bams() {
  
 ######### MAIN EXECUTION FLOW ###########
 split_beds
- 
-# keep running create_bams until all are finished
+
+# keep running create_bams until all are finished - retry if not
 while create_bams; do
     echo "Checking for remaining bed files without matching bams..."
 done
