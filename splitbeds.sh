@@ -57,6 +57,7 @@ create_bams() {
                         --aligner mem \
                         --picardjar /picard.jar \
                         -p 8 \
+                        -d 0.6 \
                         -o "/data/outputs/$sample/${chrom}.bam" \
                         -r "/data/genome/GCA_000001405.15_GRCh38_no_alt_analysis_set_plus_hs38d1_maskedGRC_exclusions_v2_no_chr.fasta" </dev/null
 
