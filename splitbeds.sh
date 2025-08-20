@@ -1,38 +1,46 @@
 #!/bin/bash
 set -euo pipefail
- 
+mkdir -p outputs intermediates
+
 ######### FUNCTION DEFINITIONS ###########
- 
  
 # split each bed by chromosome
 split_beds() {
     for bedfile in ./*.bed; do
-        sample=$(basename "$bedfile" .bed)   # father, mother, proband
+        # create basenames father, mother, proband
+        sample=$(basename "$bedfile" .bed)   
         mkdir -p "intermediates/$sample"
- 
+
+        # create output directories for each
         awk -v outdir="intermediates/$sample" \
             '{ print > (outdir "/" $1 ".bed") }' "$bedfile"
     done
 }
- 
-# create small bam files for each intermediate bed
+
+
+# create bams corresponding to each intermediate bed
 create_bams() {
-    # variable to prompt function to keep going (otherwise stops after creating a single bam file)
+    # track whether new bam is successfully created
     local progress=false  
- 
+
     # run bamsurgeon for each intermediate
-    for i in intermediates/*/*.bed; do
-        sample=$(basename "$(dirname "$i")")  # father, mother, proband
-        chrom=$(basename "$i" .bed)           # chromosomes (chr1, chr2.. etc)
+    for sample_dir in intermediates/*; do     # father, mother, proband dirs
+        sample=$(basename "$sample_dir")  
         outbam="outputs/$sample/${chrom}.bam" # define output bam
+        beds=("$sample_dir"/*.bed)           # list all chromosome bed files for sample
  
         mkdir -p "outputs/$sample"
  
-        # if num.bam exists then skip creation of that one
-        if [[ -f "$outbam" ]]; then
-            echo "Skipping $outbam (already exists)"
-            continue
-        fi
+        for bedfile in "${beds[@]}"; do
+            chrom=$(basename "$bedfile" .bed) # chromosomes (chr1, chr2.. etc)
+            outbam="outputs/$sample/${chrom}.bam"
+
+            # if chr{i}.bam exists then skip 
+            if [[ -f "$outbam" ]]; then
+                echo "Skipping $outbam (already exists)"
+                continue
+            fi
+
         docker run --rm -d -v "$(pwd)":/data bamsurgeon-env \
             python3 /bamsurgeon/bin/addsnv.py \
                 -v "/data/$i" \
@@ -47,7 +55,8 @@ create_bams() {
     done
     $progress && return 0 || return 1
 }
- 
+
+
 # merge bam files with samtools
 merge_bams() {
     for sample in father mother proband; do
@@ -60,12 +69,12 @@ merge_bams() {
             samtools index "/data/outputs/${sample}/${sample}_merged.bam"
     done
 }
- 
+
  
 ######### MAIN EXECUTION FLOW ###########
 split_beds
- 
-# keep running create_bams until all are finished
+
+# keep running create_bams until all are finished - retry if not
 while create_bams; do
     echo "Checking for remaining bed files without matching bams..."
 done
