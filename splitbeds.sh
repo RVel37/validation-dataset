@@ -25,7 +25,8 @@ create_bams() {
     local progress=false
     local error=false
     local max_jobs=8
-    local pids=()
+    local timeout=300  # force timeout after 5 mins 
+    local running_containers=()
 
     for sample_dir in intermediates/*; do
         sample=$(basename "$sample_dir")
@@ -41,43 +42,53 @@ create_bams() {
                 continue
             fi
 
-            # launch job in the background
-            (
-                docker run --rm -d -v "$(pwd)":/data bamsurgeon-env \
-                    python3 /bamsurgeon/bin/addsnv.py \
-                        -v "/data/$bedfile" \
-                        -f "/data/bams/${sample}.bam" \
-                        --aligner mem \
-                        --picardjar /picard.jar \
-                        -p 8 \
-                        -d 0.6 \
-                        -o "/data/outputs/$sample/${chrom}.bam" \
-                        -r "$REFERENCE_GENOME"
-            ) &
-            pids+=($!)
+            # launch container in detached mode and capture its container ID
+            cid=$(docker run -d -v "$(pwd)":/data bamsurgeon-env \
+                python3 /bamsurgeon/bin/addsnv.py \
+                    -v "/data/$bedfile" \
+                    -f "/data/bams/${sample}.bam" \
+                    --aligner mem \
+                    --picardjar /picard.jar \
+                    -p 8 \
+                    -d 0.6 \
+                    -o "/data/outputs/$sample/${chrom}.bam" \
+                    -r "$REFERENCE_GENOME")
+            running_containers+=("$cid")
             progress=true
 
-            # throttle - if 2 jobs already running, wait until 1 finishes
-            while (( $(jobs -r | wc -l) >= max_jobs )); do
+            # throttle: if max_jobs running, wait until at least one finishes/times out
+            while (( ${#running_containers[@]} >= max_jobs )); do
                 sleep 5
+                # check status of each container
+                for i in "${!running_containers[@]}"; do
+                    cid="${running_containers[i]}"
+                    status=$(docker inspect -f '{{.State.Status}}' "$cid")
+                    if [[ "$status" == "exited" ]]; then
+                        unset 'running_containers[i]'
+                    fi
+                done
             done
         done
     done
 
-    # wait for all remaining jobs
-    for pid in "${pids[@]}"; do
-        if ! wait "$pid"; then
-            echo "Job $pid failed" >&2
+    # force kill jobs as they don't exit on their own
+    for cid in "${running_containers[@]}"; do
+        # wait up to 5 mins
+        elapsed=0
+        while [[ "$(docker inspect -f '{{.State.Status}}' "$cid")" != "exited" && "$elapsed" -lt "$timeout" ]]; do
+            sleep 5
+            elapsed=$((elapsed+5))
+        done
+        # kill
+        if [[ "$(docker inspect -f '{{.State.Status}}' "$cid")" != "exited" ]]; then
+            echo "Container $cid exceeded timeout, killing..."
+            docker rm -f "$cid"
             error=true
         fi
     done
 
-    if [ "$progress" = true ] && [ "$error" = false ]; then
-        return 0
-    fi
-    return 1
+    return $error
 }
-
 
 
 # merge bam files with samtools
