@@ -108,10 +108,7 @@ merge_bams() {
 ######### MAIN EXECUTION FLOW ###########
 split_beds
 
-# keep running create_bams until all are finished - retry if not
-while create_bams; do
-    echo "Checking for remaining bed files without matching bams..."
-done
+create_bams
 
 # verify that all the bams have beds
 for i in father mother proband; do
