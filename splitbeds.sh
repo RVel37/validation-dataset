@@ -22,27 +22,40 @@ split_beds() {
 
 # create bams corresponding to each intermediate bed
 create_bams() {
+    local max_jobs=3
+    local timeout=240  # 54 minutes
     local progress=false
-    local error=false
-    local max_jobs=8
-    local timeout=300  # force timeout after 5 mins 
-    local running_containers=()
 
+    # collect all beds that still need a bam
+    beds_to_process=()
     for sample_dir in intermediates/*; do
         sample=$(basename "$sample_dir")
-        beds=("$sample_dir"/*.bed)
-        mkdir -p "outputs/$sample"
+        for bedfile in "$sample_dir"/*.bed; do
+            chrom=$(basename "$bedfile" .bed)
+            outbam="outputs/$sample/${chrom}.bam"
+            if [[ ! -f "$outbam" ]]; then
+                beds_to_process+=("$bedfile")
+            fi
+        done
+    done
 
-        for bedfile in "${beds[@]}"; do
+    # if nothing left, exit
+    if [[ ${#beds_to_process[@]} -eq 0 ]]; then
+        return 1  
+    fi
+
+    # process in batches
+    i=0
+    while [[ $i -lt ${#beds_to_process[@]} ]]; do
+        batch=("${beds_to_process[@]:i:max_jobs}")
+        running_containers=()
+
+        # launch batch
+        for bedfile in "${batch[@]}"; do
+            sample=$(basename "$(dirname "$bedfile")")
             chrom=$(basename "$bedfile" .bed)
             outbam="outputs/$sample/${chrom}.bam"
 
-            if [[ -f "$outbam" ]]; then
-                echo "Skipping $outbam (already exists)"
-                continue
-            fi
-
-            # launch container in detached mode and capture its container ID
             cid=$(docker run -d -v "$(pwd)":/data bamsurgeon-env \
                 python3 /bamsurgeon/bin/addsnv.py \
                     -v "/data/$bedfile" \
@@ -53,42 +66,29 @@ create_bams() {
                     -d 0.6 \
                     -o "/data/outputs/$sample/${chrom}.bam" \
                     -r "$REFERENCE_GENOME")
+            echo "$(date '+%H:%M:%S') Started $cid for $sample/$chrom"
             running_containers+=("$cid")
-            progress=true
+        done
 
-            # throttle: if max_jobs running, wait until at least one finishes/times out
-            while (( ${#running_containers[@]} >= max_jobs )); do
+        # wait --> force-kill each container
+        for cid in "${running_containers[@]}"; do
+            elapsed=0
+            while [[ "$(docker inspect -f '{{.State.Status}}' "$cid")" != "exited" && "$elapsed" -lt "$timeout" ]]; do
                 sleep 5
-                # check status of each container
-                for i in "${!running_containers[@]}"; do
-                    cid="${running_containers[i]}"
-                    status=$(docker inspect -f '{{.State.Status}}' "$cid")
-                    if [[ "$status" == "exited" ]]; then
-                        unset 'running_containers[i]'
-                    fi
-                done
+                elapsed=$((elapsed+5))
             done
+            if [[ "$(docker inspect -f '{{.State.Status}}' "$cid")" != "exited" ]]; then
+                echo "$(date '+%H:%M:%S') Container $cid exceeded timeout, killing..."
+                docker rm -f "$cid"
+            fi
         done
+
+        i=$((i + max_jobs))
     done
 
-    # force kill jobs as they don't exit on their own
-    for cid in "${running_containers[@]}"; do
-        # wait up to 5 mins
-        elapsed=0
-        while [[ "$(docker inspect -f '{{.State.Status}}' "$cid")" != "exited" && "$elapsed" -lt "$timeout" ]]; do
-            sleep 5
-            elapsed=$((elapsed+5))
-        done
-        # kill
-        if [[ "$(docker inspect -f '{{.State.Status}}' "$cid")" != "exited" ]]; then
-            echo "Container $cid exceeded timeout, killing..."
-            docker rm -f "$cid"
-            error=true
-        fi
-    done
-
-    return $error
+    return 0
 }
+
 
 
 # merge bam files with samtools
