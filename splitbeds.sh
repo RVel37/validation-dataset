@@ -22,57 +22,56 @@ split_beds() {
 
 # create bams corresponding to each intermediate bed
 create_bams() {
-    # track whether new bam is successfully created
     local progress=false
-    # collect background container IDs to wait on
-    local -a cids=()
-    local error=false  
+    local error=false
+    local max_jobs=8
+    local pids=()
 
-    # run bamsurgeon for each intermediate
-    for sample_dir in intermediates/*; do     # father, mother, proband dirs
-        sample=$(basename "$sample_dir")  
-        beds=("$sample_dir"/*.bed)           # list all chromosome bed files for sample
-
+    for sample_dir in intermediates/*; do
+        sample=$(basename "$sample_dir")
+        beds=("$sample_dir"/*.bed)
         mkdir -p "outputs/$sample"
 
-    for bedfile in "${beds[@]}"; do
-            chrom=$(basename "$bedfile" .bed) # chromosomes (chr1, chr2.. etc)
+        for bedfile in "${beds[@]}"; do
+            chrom=$(basename "$bedfile" .bed)
             outbam="outputs/$sample/${chrom}.bam"
 
-            # if chr{i}.bam exists then skip 
             if [[ -f "$outbam" ]]; then
                 echo "Skipping $outbam (already exists)"
                 continue
             fi
 
-            # launch detached, record container id, and mark progress
+            # launch job in the background
+            (
+                docker run --rm -d -v "$(pwd)":/data bamsurgeon-env \
+                    python3 /bamsurgeon/bin/addsnv.py \
+                        -v "/data/$bedfile" \
+                        -f "/data/bams/${sample}.bam" \
+                        --aligner mem \
+                        --picardjar /picard.jar \
+                        -p 8 \
+                        -d 0.6 \
+                        -o "/data/outputs/$sample/${chrom}.bam" \
+                        -r "$REFERENCE_GENOME"
+            ) &
+            pids+=($!)
             progress=true
-            cid=$(docker run --rm -d -v "$(pwd)":/data bamsurgeon-env \
-                python3 /bamsurgeon/bin/addsnv.py \
-                    -v "/data/$bedfile" \
-                    -f "/data/bam/WGS_EX2500218_22CFV7LT4.bam" \
-                    --aligner mem \
-                    --picardjar /picard.jar \
-                    -p 8 \
-                    -d 0.6 \
-                    -o "/data/outputs/$sample/${chrom}.bam" \
-                    -r "$REFERENCE_GENOME" </dev/null)
-            cids+=("$cid")
-         done       
+
+            # throttle - if 2 jobs already running, wait until 1 finishes
+            while (( $(jobs -r | wc -l) >= max_jobs )); do
+                sleep 5
+            done
+        done
     done
 
-    # wait for all launched containers to complete and capture failures
-    if [ ${#cids[@]} -gt 0 ]; then
-        for cid in "${cids[@]}"; do
-            status=$(docker wait "$cid" || true)
-            if [ "${status:-1}" != "0" ]; then
-                error=true
-                echo "Container $cid exited with status $status" >&2
-                # best-effort logs (container may be auto-removed on exit with --rm)
-                docker logs "$cid" 2>&1 | sed "s/^/[${cid}] /" >&2 || true
-            fi
-        done
-    fi
+    # wait for all remaining jobs
+    for pid in "${pids[@]}"; do
+        if ! wait "$pid"; then
+            echo "Job $pid failed" >&2
+            error=true
+        fi
+    done
+
     if [ "$progress" = true ] && [ "$error" = false ]; then
         return 0
     fi
@@ -80,11 +79,12 @@ create_bams() {
 }
 
 
+
 # merge bam files with samtools
 merge_bams() {
     for sample in father mother proband; do
         echo "Merging BAMs for $sample..."
-        docker run --rm -v "$(pwd)":/data bamsurgeon-env \
+        docker run --rm -d -v "$(pwd)":/data bamsurgeon-env \
             samtools merge -@ 8 "/data/outputs/${sample}/${sample}_merged.bam" \
             /data/outputs/${sample}/*.bam
 
