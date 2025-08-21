@@ -71,12 +71,25 @@ create_bams() {
         done
 
         # wait --> force-kill each container
-        for cid in "${running_containers[@]}"; do
-            elapsed=0
-            while [[ "$(docker inspect -f '{{.State.Status}}' "$cid")" != "exited" && "$elapsed" -lt "$timeout" ]]; do
-                sleep 5
-                elapsed=$((elapsed+5))
+        start_time=$(date +%s)
+        while true; do
+            all_done=true
+            now=$(date +%s)
+            elapsed=$((now - start_time))
+
+            for cid in "${running_containers[@]}"; do
+                status=$(docker inspect -f '{{.State.Status}}' "$cid")
+                if [[ "$status" != "exited" ]]; then
+                    all_done=false
+                fi
             done
+
+            [[ $all_done == true || $elapsed -ge $timeout ]] && break
+            sleep 5
+        done
+
+        # force-kill any remaining containers
+        for cid in "${running_containers[@]}"; do
             if [[ "$(docker inspect -f '{{.State.Status}}' "$cid")" != "exited" ]]; then
                 echo "$(date '+%H:%M:%S') Container $cid exceeded timeout, killing..."
                 docker rm -f "$cid"
