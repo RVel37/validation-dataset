@@ -22,17 +22,20 @@ split_beds() {
 
 # create bams corresponding to each intermediate bed
 create_bams() {
+    # local variables - won't get overwritten when running tasks concurrently
     local max_jobs=3
-    local timeout=240  # 54 minutes
+    local timeout=180 # 3 mins
     local progress=false
 
     # collect all beds that still need a bam
     beds_to_process=()
     for sample_dir in intermediates/*; do
         sample=$(basename "$sample_dir")
+
         for bedfile in "$sample_dir"/*.bed; do
             chrom=$(basename "$bedfile" .bed)
             outbam="outputs/$sample/${chrom}.bam"
+            
             if [[ ! -f "$outbam" ]]; then
                 beds_to_process+=("$bedfile")
             fi
@@ -46,7 +49,9 @@ create_bams() {
 
     # process in batches
     i=0
+    # while the list of jobs is less than total number of items in the list (beds)
     while [[ $i -lt ${#beds_to_process[@]} ]]; do
+        # take up to 3 items and process this as a batch
         batch=("${beds_to_process[@]:i:max_jobs}")
         running_containers=()
 
@@ -66,29 +71,28 @@ create_bams() {
                     -d 0.6 \
                     -o "/data/outputs/$sample/${chrom}.bam" \
                     -r "$REFERENCE_GENOME")
-            echo "$(date '+%H:%M:%S') Started $cid for $sample/$chrom"
+            echo "$(date '+%H:%M:%S') Started $cid for $sample sample, chr $chrom"
             running_containers+=("$cid")
-        done
-
-        # wait --> force-kill each container
-        for cid in "${running_containers[@]}"; do
+        
+        # count how long individual task runs for; terminate after 3 mins
+        (
             elapsed=0
             while [[ "$(docker inspect -f '{{.State.Status}}' "$cid")" != "exited" && "$elapsed" -lt "$timeout" ]]; do
                 sleep 5
                 elapsed=$((elapsed+5))
             done
             if [[ "$(docker inspect -f '{{.State.Status}}' "$cid")" != "exited" ]]; then
-                echo "$(date '+%H:%M:%S') Container $cid exceeded timeout, killing..."
+                echo "$(date '+%H:%M:%S') $cid has been running for 3 mins, killing task. "
                 docker rm -f "$cid"
             fi
-        done
-
+        ) &
+    done
+        wait # for all the jobs in the batch to finish
         i=$((i + max_jobs))
     done
 
     return 0
 }
-
 
 
 # merge bam files with samtools
