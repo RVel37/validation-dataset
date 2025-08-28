@@ -4,7 +4,6 @@ mkdir -p outputs intermediates
 
 REFERENCE_GENOME="/data/genome/GCA_000001405.15_GRCh38_no_alt_analysis_set_plus_hs38d1_maskedGRC_exclusions_v2_no_chr.fasta"
 
-######### FUNCTION DEFINITIONS ###########
 
 # split each bed by chromosome
 split_beds() {
@@ -96,20 +95,10 @@ create_bams() {
 
 
 # merge bam files with samtools
-merge_bams() {
-    for sample in father mother proband; do
-        echo "Merging BAMs for $sample..."
-        docker run --rm -d -v "$(pwd)":/data bamsurgeon-env \
-            samtools merge -@ 8 "/data/outputs/${sample}/${sample}_merged.bam" \
-            /data/outputs/${sample}/*.bam
-
-        docker run --rm -v "$(pwd)":/data bamsurgeon-env \
-            samtools index "/data/outputs/${sample}/${sample}_merged.bam"
-    done
-}
+# merge_bams() {
+# }
 
 
-######### MAIN EXECUTION FLOW ###########
 split_beds
 
 create_bams
@@ -129,4 +118,4 @@ for i in father mother proband; do
 done
 
 # now merge everything
-merge_bams
+#merge_bams
