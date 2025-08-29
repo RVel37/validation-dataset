@@ -1,50 +1,6 @@
 #!/bin/bash
-set -euo pipefail
-mkdir -p outputs intermediates
 
-REFERENCE_GENOME="/data/genome/GCA_000001405.15_GRCh38_no_alt_analysis_set_plus_hs38d1_maskedGRC_exclusions_v2_no_chr.fasta"
-
-### FUNCTION DEFINITIONS:
-
-# split each bed by chromosome
-split_beds() {
-    for bedfile in ./*.bed; do
-        # create basenames father, mother, proband
-        sample=$(basename "$bedfile" .bed)   
-        mkdir -p "intermediates/$sample"
-
-        # create output directories for each
-        awk -v outdir="intermediates/$sample" \
-            '{ print > (outdir "/" $1 ".bed") }' "$bedfile"
-    done
-}
-
-
-# split each bam by chromosome
-split_bams() {
-    mkdir -p split_bams
-    for bamfile in bams/*.bam; do
-        sample=$(basename "$bamfile" .bam)
-        mkdir -p "split_bams/$sample"
-
-    if [[ ! -f "$bamfile.bai" ]]; then
-        samtools index "$bamfile"
-    fi
-
-    for chrom in $(samtools idxstats "$bamfile" | cut -f1 | grep -v '\*'); do
-        outbam="split_bams/$sample/${chrom}.bam"
-        if [[ ! -f "$outbam" ]]; then
-            echo "Splitting $sample $chrom"
-            samtools view -b "$bamfile" "$chrom" > "$outbam"
-            samtools index "$outbam"
-        fi
-    done
-done
-}
-
-
-# run bamsurgeon for each intermediate
-spike_in_variants() {
+create_bams() {
     # local variables - won't get overwritten when running tasks concurrently
     local max_jobs=3
     local timeout=180 # 3 mins
@@ -87,7 +43,7 @@ spike_in_variants() {
             cid=$(docker run -d -v "$(pwd)":/data bamsurgeon-env \
                 python3 /bamsurgeon/bin/addsnv.py \
                     -v "/data/$bedfile" \
-                    -f "/data/split_bams/${sample}/${chrom}.bam" \
+                    -f "/data/bams/${sample}.bam" \
                     --aligner mem \
                     --picardjar /picard.jar \
                     -p 8 \
@@ -113,35 +69,8 @@ spike_in_variants() {
         wait # for all the jobs in the batch to finish
         i=$((i + max_jobs))
     done
+
     return 0
 }
 
-
-# merge bam files with samtools
-# merge_bams() {
-# }
-
-
-### EXECUTION WORKFLOW:
-
-split_beds
-split_bams
-spike_in_variants
-
-# verify that all the bams have beds 
-#   (this is currently flagging that no mitochondrial variants are being processed)
-for i in father mother proband; do
-    bed_count=$(find "intermediates/$i" -type f -name "*.bed" | wc -l)
-    # don't count any "_merged.bam" files we may have previously created
-    bam_count=$(find "outputs/$i" -type f -name "*.bam" ! -name "*_merged.bam" | wc -l)
-
-    if [[ "$bed_count" -ne "$bam_count" ]]; then
-        echo "ERROR: $i is missing some BAM files." >&2
-        exit 1
-    else
-        echo "All intermediate bams for the $i sample created. Merging..."
-    fi
-done
-
-# now merge everything
-#merge_bams
+create_bams
