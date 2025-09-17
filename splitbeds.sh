@@ -23,7 +23,7 @@ split_beds() {
 # create bams corresponding to each intermediate bed
 create_bams() {
     local max_jobs=3
-    local timeout=240  # 54 minutes
+    local timeout=240  # 4 minutes
     local progress=false
 
     # collect all beds that still need a bam
