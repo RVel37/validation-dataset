@@ -1,22 +1,25 @@
 #!/bin/bash
 set -euo pipefail
-mkdir -p outputs intermediates
+mkdir -p outputs split_beds split_bams
 
 REFERENCE_GENOME="/data/genome/GCA_000001405.15_GRCh38_no_alt_analysis_set_plus_hs38d1_maskedGRC_exclusions_v2_no_chr.fasta"
 
-### FUNCTION DEFINITIONS:
+# Pull required Docker images
+docker pull biocontainers/samtools:v1.9-4-deb_cv1
+docker build -t bamsurgeon-env .
 
 # split each bed by chromosome
 split_beds() {
     for bedfile in ./*.bed; do
         # create basenames father, mother, proband
         sample=$(basename "$bedfile" .bed)   
-        mkdir -p "intermediates/$sample"
+        mkdir -p "split_beds/$sample"
 
         # create output directories for each
-        awk -v outdir="intermediates/$sample" \
+        awk -v outdir="split_beds/$sample" \
             '{ print > (outdir "/" $1 ".bed") }' "$bedfile"
     done
+    # split_beds/family member/*.bed
 }
 
 
@@ -27,9 +30,9 @@ split_bams() {
         sample=$(basename "$bamfile" .bam)
         mkdir -p "split_bams/$sample"
 
-    if [[ ! -f "$bamfile.bai" ]]; then
-        samtools index "$bamfile"
-    fi
+    # if [[ ! -f "$bamfile.bai" ]]; then
+    #     samtools index "$bamfile"
+    # fi
 
     for chrom in $(samtools idxstats "$bamfile" | cut -f1 | grep -v '\*'); do
         outbam="split_bams/$sample/${chrom}.bam"
@@ -37,18 +40,16 @@ split_bams() {
             echo "Splitting $sample $chrom"
             samtools view -b "$bamfile" "$chrom" > "$outbam"
             samtools index "$outbam"
+            # split_bams/family member/*.bam
         fi
     done
 done
 }
 
 
-# run bamsurgeon for each intermediate
+# run bamsurgeon for all intermediates
 spike_in_variants() {
-    # local variables - won't get overwritten when running tasks concurrently
-    local max_jobs=3
-    local timeout=180 # 3 mins
-    local progress=false
+    max_jobs=3
 
     # collect all beds that still need a bam
     beds_to_process=()
@@ -67,6 +68,7 @@ spike_in_variants() {
 
     # if nothing left, exit
     if [[ ${#beds_to_process[@]} -eq 0 ]]; then
+    echo "No beds to process."
         return 1  
     fi
 
@@ -93,36 +95,29 @@ spike_in_variants() {
                     -p 8 \
                     -d 0.6 \
                     -o "/data/outputs/$sample/${chrom}.bam" \
-                    -r "$REFERENCE_GENOME")>file.log 2>&1
+                    -r "$REFERENCE_GENOME") 2>&1
             echo "$(date '+%H:%M:%S') Started $cid for $sample sample, chr $chrom"
             running_containers+=("$cid")
-        
-        # count how long individual task runs for; terminate after 3 mins
-        (
-            elapsed=0
-            while [[ "$(docker inspect -f '{{.State.Status}}' "$cid")" != "exited" && "$elapsed" -lt "$timeout" ]]; do
-                sleep 5
-                elapsed=$((elapsed+5))
-            done
-            if [[ "$(docker inspect -f '{{.State.Status}}' "$cid")" != "exited" ]]; then
-                echo "$(date '+%H:%M:%S') $cid has been running for 3 mins, killing task. "
-                docker rm -f "$cid"
-            fi
-        ) &
-    done
-        wait # for all the jobs in the batch to finish
-        i=$((i + max_jobs))
-    done
+        done
+            wait # for all the jobs in the batch to finish
+            i=$((i + max_jobs))
+        done
     return 0
 }
 
 
 # merge bam files with samtools
-# merge_bams() {
-# }
+merge_bams() {
+    for sample_dir in outputs/*; do
+        samples=$(basename "$sample_dir")
+        for sample in samples; do 
+        docker run -v "$(pwd)":/data biocontainers/samtools:v1.9-4-deb_cv1 \
+            samtools merge $sample.full.bam /data/$sample/* 
+
+}
 
 
-### EXECUTION WORKFLOW:
+### EXECUTION WORKFLOW ###
 
 split_beds
 split_bams
