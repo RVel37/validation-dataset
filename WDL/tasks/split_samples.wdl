@@ -58,13 +58,12 @@ task pair_chromosomes {
     
     output {
         Array[Chromosome] Chr = [
-            for (i in range(length(bam_array))) {
                 Chromosome(
                     chr_bam = bam_array[i],
                     chr_bed = bed_array[i],
                     chrom   = basename(bam_array[i], ".bam")
                 )
-            }
+            for i in range(length(bam_array))
         ]
     }
 }
