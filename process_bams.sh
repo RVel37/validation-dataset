@@ -30,10 +30,6 @@ split_bams() {
         sample=$(basename "$bamfile" .bam)
         mkdir -p "split_bams/$sample"
 
-    # if [[ ! -f "$bamfile.bai" ]]; then
-    #     samtools index "$bamfile"
-    # fi
-
     for chrom in $(samtools idxstats "$bamfile" | cut -f1 | grep -v '\*'); do
         outbam="split_bams/$sample/${chrom}.bam"
         if [[ ! -f "$outbam" ]]; then
@@ -49,71 +45,38 @@ done
 
 # run bamsurgeon for all intermediates
 spike_in_variants() {
-    max_jobs=3
+    for bedfile in split_beds/*/*.bed; do
+        sample=$(basename "$(dirname "$bedfile")")
+        chrom=$(basename "$bedfile" .bed)
+        mkdir -p "outputs/$sample"
+        outbam="outputs/$sample/${chrom}.bam"
 
-    # collect all beds that still need a bam
-    beds_to_process=()
-    for sample_dir in intermediates/*; do
-        sample=$(basename "$sample_dir")
-
-        for bedfile in "$sample_dir"/*.bed; do
-            chrom=$(basename "$bedfile" .bed)
-            outbam="outputs/$sample/${chrom}.bam"
-            
-            if [[ ! -f "$outbam" ]]; then
-                beds_to_process+=("$bedfile")
-            fi
-        done
+        echo "$(date '+%H:%M:%S') Running bamsurgeon on $sample $chrom"
+        docker run --rm -v "$(pwd)":/data bamsurgeon-env \
+            python3 /bamsurgeon/bin/addsnv.py \
+                -v "/data/$bedfile" \
+                -f "/data/split_bams/${sample}/${chrom}.bam" \
+                --aligner mem \
+                --picardjar /picard.jar \
+                -p 8 \
+                -d 0.6 \
+                -o "/data/$outbam" \
+                -r "$REFERENCE_GENOME"
     done
-
-    # if nothing left, exit
-    if [[ ${#beds_to_process[@]} -eq 0 ]]; then
-    echo "No beds to process."
-        return 1  
-    fi
-
-    # process in batches
-    i=0
-    # while the list of jobs is less than total number of items in the list (beds)
-    while [[ $i -lt ${#beds_to_process[@]} ]]; do
-        # take up to 3 items and process this as a batch
-        batch=("${beds_to_process[@]:i:max_jobs}")
-        running_containers=()
-
-        # launch batch
-        for bedfile in "${batch[@]}"; do
-            sample=$(basename "$(dirname "$bedfile")")
-            chrom=$(basename "$bedfile" .bed)
-            outbam="outputs/$sample/${chrom}.bam"
-
-            cid=$(docker run -d -v "$(pwd)":/data bamsurgeon-env \
-                python3 /bamsurgeon/bin/addsnv.py \
-                    -v "/data/$bedfile" \
-                    -f "/data/split_bams/${sample}/${chrom}.bam" \
-                    --aligner mem \
-                    --picardjar /picard.jar \
-                    -p 8 \
-                    -d 0.6 \
-                    -o "/data/outputs/$sample/${chrom}.bam" \
-                    -r "$REFERENCE_GENOME") 2>&1
-            echo "$(date '+%H:%M:%S') Started $cid for $sample sample, chr $chrom"
-            running_containers+=("$cid")
-        done
-            wait # for all the jobs in the batch to finish
-            i=$((i + max_jobs))
-        done
-    return 0
 }
 
 
-# merge bam files with samtools
+# merge bam files with samtools after - dont do this yet
 merge_bams() {
     for sample_dir in outputs/*; do
-        samples=$(basename "$sample_dir")
-        for sample in samples; do 
-        docker run -v "$(pwd)":/data biocontainers/samtools:v1.9-4-deb_cv1 \
-            samtools merge $sample.full.bam /data/$sample/* 
-
+        sample=$(basename "$sample_dir")
+        echo "Merging BAMs for $sample"
+        
+        docker run --rm -v "$(pwd)":/data biocontainers/samtools:v1.9-4-deb_cv1 \
+            samtools merge \
+            "/data/outputs/${sample}.full.bam" \
+            /data/outputs/"$sample"/*.bam
+    done
 }
 
 
@@ -124,7 +87,7 @@ split_bams
 spike_in_variants
 
 # verify that all the bams have beds 
-#   (this is currently flagging that no mitochondrial variants are being processed)
+#   (BUG: this is currently flagging that no mitochondrial variants are being processed)
 for i in father mother proband; do
     bed_count=$(find "intermediates/$i" -type f -name "*.bed" | wc -l)
     # don't count any "_merged.bam" files we may have previously created
@@ -139,4 +102,4 @@ for i in father mother proband; do
 done
 
 # now merge everything
-#merge_bams
+merge_bams
