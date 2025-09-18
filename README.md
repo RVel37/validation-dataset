@@ -38,9 +38,10 @@ Command for bamsurgeon:
 python3 /bamsurgeon/bin/addsnv.py  -v ../bamsurgeonInput.bed -f ../WGS_EX2500218_22CFV7LT4.bam --aligner mem --picardjar /picard.jar -p 8 -o output.bam -r ../genome/GCA_000001405.15_GRCh38_no_alt_analysis_set_plus_hs38d1_maskedGRC_exclusions_v2_no_chr.fasta
 ```
 
-> WORK IN PROGRESS: Currently, our aim is to implement and test a workflow for running `addsnv.py` across four families of trios (each consisting of one male proband and one female proband, for both WGS and WES data.
-> The bash script implementation `process_bams.sh` was a first attempt that loops through samples, but may be too slow for large datasets. 
-> The WDL workflow is a more scalable implementation, though not yet complete.
+#### WORK IN PROGRESS:
+Currently, our aim is to implement and test a workflow for running `addsnv.py` across four families of trios (each consisting of one male proband and one female proband, for both WGS and WES data.
+- The bash script implementation `process_bams.sh` was a first attempt that loops through samples, but may be too slow for large datasets. 
+- The WDL workflow is a more scalable implementation, though not yet complete.
 
 ---
 
