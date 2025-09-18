@@ -12,13 +12,15 @@ task split_samples {
     # dynamic instance
     Int disk_gb = ceil( 2* (size(bam, "GiB"))) + 2
     String mem = "8 GB"
-    Int threads = 8
+    Int threads = 4
     Int cpu = (threads)/2
 
     command <<<
 
         sample=~{fam_member}
 
+        mkdir -p split_beds/$sample
+        mkdir -p split_bams/$sample
 
         # Split BED by chromosome
         awk -v outdir="split_beds/$sample" '{ print > (outdir "/" $1 ".bed") }' "~{bed}"
@@ -39,17 +41,9 @@ task split_samples {
     }
 
     runtime {
-
+        cpu: cpu
+        gpu: false
+        memory: "${mem}"
+        disks: "local-disk ${disk_gb} SSD"
     }
-}
-
-
-
-task pair_chromosomes {
-    input {
-        Array[File] bam_array
-        Array[File] bed_array
-    }
-    
-
 }

@@ -29,17 +29,19 @@ workflow main {
                 dockerSamtools=dockerSamtools
         }
 
-        scatter (c in pair_chromosomes.Chr) {
+
+        scatter (i in range(length(split.bam_array))) {
             call bamsurgeon.bamsurgeon {
                 input:
-                    bam = c.chr_bam,
-                    bed = c.chr_bed,
-                    chrom = c.chrom,
-                    refGenomeBwaTar=refGenomeBwaTar,
-                    fam_member=s.fam_member
-
+                    bam = split.bam_array[i],
+                    bed = split.bed_array[i],
+                    refGenomeBwaTar = refGenomeBwaTar,
+                    fam_member = s.fam_member,
+                    dockerBamsurgeon = dockerBamsurgeon
             }
         }
+
+        bams = flatten(bamsurgeon.spiked_bams)
 
         call merge_bams.merge_bams {
             input:
