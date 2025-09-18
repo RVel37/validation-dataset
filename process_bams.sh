@@ -1,5 +1,4 @@
 #!/bin/bash
-set -euo pipefail
 mkdir -p outputs split_beds split_bams
 
 REFERENCE_GENOME="/data/genome/GCA_000001405.15_GRCh38_no_alt_analysis_set_plus_hs38d1_maskedGRC_exclusions_v2_no_chr.fasta"
