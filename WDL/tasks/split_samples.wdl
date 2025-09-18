@@ -44,11 +44,6 @@ task split_samples {
 }
 
 
-struct Chromosome {
-    File chr_bam
-    File chr_bed
-    String chrom
-}
 
 task pair_chromosomes {
     input {
@@ -56,14 +51,5 @@ task pair_chromosomes {
         Array[File] bed_array
     }
     
-    output {
-        Array[Chromosome] Chr = [
-                Chromosome(
-                    chr_bam = bam_array[i],
-                    chr_bed = bed_array[i],
-                    chrom   = basename(bam_array[i], ".bam")
-                )
-            for i in range(length(bam_array))
-        ]
-    }
+
 }
