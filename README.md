@@ -35,7 +35,7 @@ Using BamSurgeon's `addsnv.py` script to splice in SNVs.
 
 Command for bamsurgeon:
 ```bash
-python3 /bamsurgeon/bin/addsnv.py  -v ../bamsurgeonInput.bed -f ../WGS_EX2500218_22CFV7LT4.bam --aligner mem --picardjar /picard.jar -p 8 -o output.bam -r ../genome/GCA_000001405.15_GRCh38_no_alt_analysis_set_plus_hs38d1_maskedGRC_exclusions_v2_no_chr.fasta
+python3 /bamsurgeon/bin/addsnv.py  -v input.bed -f input.bam --aligner mem --picardjar /picard.jar -p 8 -o output.bam -r ref.fasta
 ```
 
 #### WORK IN PROGRESS:
