@@ -1,8 +1,14 @@
 # Validation Dataset
 
-> This respository is under active development
+> This repository is under active development
 
-The goal of this project is to create a validation cohort using [BamSurgeon](https://github.com/adamewing/bamsurgeon), a tool that allows variants to be inserted into preexisting BAM files. By creating "frankenBAM" samples with spliced-in variants, we can validate hundreds of variants within a single sample, significantly reducing both the time and computational resources required for validation purposes. 
+The goal of this project is to create a validation cohort using [BamSurgeon](https://github.com/adamewing/bamsurgeon), a tool that allows variants to be inserted into preexisting BAM files. By creating "FrankenBAM" samples with spliced-in variants, we can validate hundreds of variants within a single sample, significantly reducing both the time and computational resources required for validation purposes. 
+
+---
+## Prerequisites
+- Bash shell
+- Docker image of BamSurgeon (`addsnv.py`)
+---
 
 ## 1. Obtain variant list
 
@@ -13,11 +19,11 @@ A list of pathogenic/likely pathogenic variants previously identified in the lab
 In order to use these variants as our BamSurgeon input, they must be formatted as a BED file with the following columns: 
 `chr    start   end VAF alt`
 
-In subdirectory `preprocess`:
+Preprocessing scripts (`/preprocess`):
 
 R script `modifydata.R`:
-- Cleans Crystal Report CSV, removing duplicated/incomplete entries
-- Extracts SNVs (removing indels which are not accepted by BamSurgeon's `addsnvs.py`)
+- Cleans Crystal Report `csv`, removing duplicated/incomplete entries
+- Extracts SNVs (removing indels which are not accepted by BamSurgeon's `addsnv.py`)
 - Outputs new `tsv` files with sample lookup details for DNAnexus and variant metadata
 - Produces separate male and female `tsv` files to allow for creation of two family trios (for accurate handling of X-linked variants)
 
@@ -26,12 +32,12 @@ Bash script `annotation_to_bed.sh`:
 - Script pulls relevant info (chromosome, start coord, end coord, zygosity)
     - Annotation files for samples will have either been created by VEP or Alamut, depending on when the sample was analysed. VEP and Alamut annotation files have unique formats, so are handled differently. 
 
-In the case of exomes/genomes, which are run as trios, we also require a BED file representing the mother and father. 
-- Logic for duos: the other parent is effectively assumed to match the reference genome since the variant will not be added to the corresponding bed file. 
+As exomes/genomes are run as family trios, we also require a BED file representing the mother and father. 
+- Logic for duos: the other parent is effectively assumed to match the reference genome, since the variant will not be added to the corresponding BED file. 
 
 ## 3. Running BamSurgeon
 
-Using BamSurgeon's `addsnv.py` script to splice in SNVs.
+Using BamSurgeon's `addsnv.py` script to splice in SNVs. 
 
 Command for bamsurgeon:
 ```bash
@@ -39,9 +45,9 @@ python3 /bamsurgeon/bin/addsnv.py  -v input.bed -f input.bam --aligner mem --pic
 ```
 
 #### WORK IN PROGRESS:
-Currently, our aim is to implement and test a workflow for running `addsnv.py` across four families of trios (each consisting of one male proband and one female proband, for both WGS and WES data.
+Currently, our aim is to implement and test a workflow for running `addsnv.py` across four families of trios (one male proband and one female proband, for both WGS and WES data).
 - The bash script implementation `process_bams.sh` was a first attempt that loops through samples, but may be too slow for large datasets. 
-- The WDL workflow is a more scalable implementation, though not yet complete.
+- A WDL workflow (`/WDL`) is being tested as a more scalable implementation (in development).
 
 ---
 
