@@ -1,13 +1,13 @@
 {
   "main.samples": [
     {
-      "bam": "project-J00J2YQ49jJKz0Xq6yB4qB4x:file-J2Xpgz049jJGZG1xYJp98JBY",
-      "bai": "project-J00J2YQ49jJKz0Xq6yB4qB4x:file-J2Xpjv849jJ82G6y38Zx8kBJ",
-      "bed": "project-J00J2YQ49jJKz0Xq6yB4qB4x:file-J2Xpgy849jJ7J5z1FYqFXKpZ",
+      "bam": "dx://project-J00J2YQ49jJKz0Xq6yB4qB4x:file-J2Xpgz049jJGZG1xYJp98JBY",
+      "bai": "dx://project-J00J2YQ49jJKz0Xq6yB4qB4x:file-J2Xpjv849jJ82G6y38Zx8kBJ",
+      "bed": "dx://project-J00J2YQ49jJKz0Xq6yB4qB4x:file-J2Xpgy849jJ7J5z1FYqFXKpZ",
       "fam_member": "proband"
     }
   ],
-  "main.refGenomeBwaTar":"project-J00J2YQ49jJKz0Xq6yB4qB4x:file-GJqg9Jj4fq4V3185F49Qp99Q",
-  "main.dockerSamtools":"project-J00J2YQ49jJKz0Xq6yB4qB4x:file-J33X74849jJFVK9V4z0XgkPv",
-  "main.dockerBamsurgeon":"project-J00J2YQ49jJKz0Xq6yB4qB4x:file-J364Qx049jJ2fqqGBJZ8Px46"
+  "main.refGenomeBwaTar":"dx://project-J00J2YQ49jJKz0Xq6yB4qB4x:file-GJqg9Jj4fq4V3185F49Qp99Q",
+  "main.dockerSamtools":"dx://project-J00J2YQ49jJKz0Xq6yB4qB4x:file-J33X74849jJFVK9V4z0XgkPv",
+  "main.dockerBamsurgeon":"dx://project-J00J2YQ49jJKz0Xq6yB4qB4x:file-J364Qx049jJ2fqqGBJZ8Px46"
 }

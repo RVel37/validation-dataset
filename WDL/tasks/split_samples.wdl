@@ -7,6 +7,7 @@ task split_samples {
         File bai
         File bed
         String fam_member
+        String dockerSamtools
     }
 
     # dynamic instance
@@ -45,5 +46,6 @@ task split_samples {
         gpu: false
         memory: "${mem}"
         disks: "local-disk ${disk_gb} SSD"
+        docker: {dockerSamtools}
     }
 }

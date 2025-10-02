@@ -29,9 +29,8 @@ workflow main {
                 dockerSamtools=dockerSamtools
         }
 
-
         scatter (i in range(length(split.bam_array))) {
-            call bamsurgeon.bamsurgeon {
+            call bamsurgeon.bamsurgeon as spike {
                 input:
                     bam = split.bam_array[i],
                     bed = split.bed_array[i],
@@ -41,16 +40,18 @@ workflow main {
             }
         }
 
-        bams = flatten(bamsurgeon.spiked_bams)
+        # collect the output of bamsurgeon task
+        Array[File] spiked_bam_array = spike.spiked_bams
 
         call merge_bams.merge_bams {
             input:
-            bams = bamsurgeon.spiked_bams,
+            bams = spiked_bam_array,
             fam_member=s.fam_member
         }
     }
 
     output {
-        Array[File] bams = merge_bams.merged
+        Array[File] bams = merge_bams.final
+        Array[File] bais = merge_bams.final_idx
     }
 }
