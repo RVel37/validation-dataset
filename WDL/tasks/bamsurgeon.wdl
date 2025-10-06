@@ -11,8 +11,8 @@ task bamsurgeon {
 
     # dynamic instance
     Int disk_gb = ceil( 2* (size(bam, "GiB"))) + 2
-    String mem = "8 GB"
-    Int threads = 4
+    String mem = "16 GB"
+    Int threads = 16
     Int cpu = (threads)/2
 
     command <<<
@@ -27,7 +27,7 @@ task bamsurgeon {
             --picardjar /picard.jar \
             -p 8 \
             -d 0.6 \
-            -o ~{basename(bam)}.{fam_member}.out.bam \
+            -o ~{basename(bam)}.~{fam_member}.out.bam \
             -r $fasta
 
     >>>
@@ -41,6 +41,6 @@ task bamsurgeon {
         gpu: false
         memory: "${mem}"
         disks: "local-disk ${disk_gb} SSD"
-        docker: {dockerBamsurgeon}
+        docker: "${dockerBamsurgeon}"
     }
 }

@@ -12,33 +12,32 @@ task split_samples {
 
     # dynamic instance
     Int disk_gb = ceil( 2* (size(bam, "GiB"))) + 2
-    String mem = "8 GB"
-    Int threads = 4
+    String mem = "16 GB"
+    Int threads = 16
     Int cpu = (threads)/2
 
     command <<<
+        echo "Input BAM: ~{bam}"
+        echo "Input BED: ~{bed}"
 
-        sample=~{fam_member}
+        mkdir -p split_bams split_beds
 
-        mkdir -p split_beds/$sample
-        mkdir -p split_bams/$sample
+        # Split BED
+        echo "splitting BED for ~{fam_member}"
+        awk -v outdir="split_beds" '{ print > (outdir "/" $1 ".bed") }' "~{bed}"
 
-        # Split BED by chromosome
-        awk -v outdir="split_beds/$sample" '{ print > (outdir "/" $1 ".bed") }' "~{bed}"
-
-        # Split BAM by chromosome + index
-        for chrom in $(samtools idxstats "~{bam}" | cut -f1 | grep -v '\*' | sort -V); do
-            bam_out="split_bams/$sample/${chrom}.bam"
-            bed_out="split_beds/$sample/${chrom}.bed"
-            samtools view -b "~{bam}" "$chrom" > "$bam_out"
-            samtools index "$bam_out"
-        done
+        # Split BAM
+        echo "splitting BAM for ~{fam_member}"
+        samtools split -f "split_bams/%!.bam" "~{bam}"
+        
+        echo "BAMs created: "
+        ls split_bams
 
     >>>
 
     output {
-        Array[File] bam_array = sort(glob("split_bams/~{fam_member}/*.bam"))
-        Array[File] bed_array = sort(glob("split_beds/~{fam_member}/*.bed"))
+        Array[File] bam_array = glob("split_bams/~{fam_member}/*.bam")
+        Array[File] bed_array = glob("split_beds/~{fam_member}/*.bed")
     }
 
     runtime {
@@ -46,6 +45,6 @@ task split_samples {
         gpu: false
         memory: "${mem}"
         disks: "local-disk ${disk_gb} SSD"
-        docker: {dockerSamtools}
+        docker: "${dockerSamtools}"
     }
 }

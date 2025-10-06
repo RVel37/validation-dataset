@@ -7,9 +7,9 @@ task merge_bams {
         String dockerSamtools
     }
 
-    Int disk_gb = ceil(2 * sum(size(bams, "GiB"))) + 2
+    Int disk_gb = ceil(2 * size(bams, "GiB")) + 2
     String mem = "16 GB"
-    Int threads = 8
+    Int threads = 16
     Int cpu = (threads)/2
 
     command <<<
@@ -33,6 +33,6 @@ task merge_bams {
         gpu: false
         memory: "${mem}"
         disks: "local-disk ${disk_gb} SSD"
-        docker: {dockerSamtools}
+        docker: "${dockerSamtools}"
     }
 }

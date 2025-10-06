@@ -47,6 +47,7 @@ workflow main {
             input:
             bams = spiked_bam_array,
             fam_member=s.fam_member
+            dockerSamtools=dockerSamtools
         }
     }
 
