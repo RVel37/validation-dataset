@@ -13,6 +13,12 @@ task merge_bams {
     Int cpu = (threads)/2
 
     command <<<
+        # DEBUG
+        echo "List of BAMs:"
+        for bam in ~{sep=' ' bams}; do
+            echo $bam
+        done
+
         echo "Merging BAMs for ~{fam_member}:"
         samtools merge -@ ~{threads} merged_~{fam_member}.bam ~{sep=' ' bams}
 

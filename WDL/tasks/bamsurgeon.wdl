@@ -16,6 +16,8 @@ task bamsurgeon {
     Int cpu = (threads)/2
 
     command <<<
+        # debug
+        echo "Running bamsurgeon with BAM: ~{bam} + BED: ~{bed} for the ~{fam_member}"
 
         tar -xvzf ~{refGenomeBwaTar}
         fasta=$(*.fasta)
@@ -33,7 +35,7 @@ task bamsurgeon {
     >>>
 
     output {
-        File spiked_bams = "~{basename(bam)}.{fam_member}.out.bam"
+        File spiked_bams = "~{basename(bam)}.~{fam_member}.out.bam"
     }
 
     runtime {
@@ -42,5 +44,20 @@ task bamsurgeon {
         memory: "${mem}"
         disks: "local-disk ${disk_gb} SSD"
         docker: "${dockerBamsurgeon}"
+    }
+}
+
+task debug_print {
+    input {
+        File bam
+        File bed
+    }
+    command <<<
+        echo "BAM: ~{bam}"
+        echo "BED: ~{bed}"
+    >>>
+
+    runtime {
+        docker: "ubuntu:22.04"
     }
 }

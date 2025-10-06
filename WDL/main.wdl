@@ -29,7 +29,14 @@ workflow main {
                 dockerSamtools=dockerSamtools
         }
 
+        # scatter over aligned BED and BAM arrays
         scatter (i in range(length(split.bam_array))) {
+            call debug_print {
+                input:
+                    bam = split.bam_array[i],
+                    bed = split.bed_array[i],
+            }
+
             call bamsurgeon.bamsurgeon as spike {
                 input:
                     bam = split.bam_array[i],

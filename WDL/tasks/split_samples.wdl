@@ -27,8 +27,10 @@ task split_samples {
         awk -v outdir="split_beds" '{ print > (outdir "/" $1 ".bed") }' "~{bed}"
 
         # Split BAM
-        echo "splitting BAM for ~{fam_member}"
-        samtools split -f "split_bams/%!.bam" "~{bam}"
+        for chr in {1..22} X Y; do
+            echo "Extracting BAM for $chr"
+            samtools view -b "~{bam}" "$chr" > "split_bams/$chr.bam"
+        done
         
         echo "BAMs created: "
         ls split_bams
