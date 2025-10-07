@@ -11,7 +11,7 @@ task split_samples {
     }
 
     # dynamic instance
-    Int disk_gb = ceil( 2* (size(bam, "GiB"))) + 2
+    Int disk_gb = ceil(1.5*(size(bam, "GiB")))
     String mem = "16 GB"
     Int threads = 16
     Int cpu = (threads)
@@ -23,16 +23,15 @@ task split_samples {
         mkdir -p split_bams split_beds
 
         # Split BED
-
-        sed 's/^MT/M/' ~{bed} > tmp.bed && mv tmp.bed ~{bed}
+        #sed 's/^MT/M/' ~{bed} > tmp.bed && mv tmp.bed ~{bed}
         echo "splitting BED for ~{fam_member}"
-        awk -v outdir="split_beds" '{ print > (outdir "/" $1 ".bed") }' "~{bed}"
+        awk '$1 == "1" || $1 == "2"' "~{bed}" | awk -v outdir="split_beds" '{ print > (outdir "/" $1 ".bed") }'
 
         echo "BEDs created:"
         ls split_beds
 
         # Split BAM
-        for chr in {1..22} M X; do
+        for chr in {1..2}; do
             echo "Extracting BAM for $chr"
             samtools view -b "~{bam}" "$chr" > "split_bams/$chr.bam"
         done

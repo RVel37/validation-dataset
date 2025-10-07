@@ -7,7 +7,7 @@ task merge_bams {
         String dockerSamtools
     }
 
-    Int disk_gb = ceil(2 * size(bams, "GiB")) + 2
+    Int disk_gb = ceil(1.5 * size(bams, "GiB"))
     String mem = "16 GB"
     Int threads = 16
     Int cpu = (threads)/2

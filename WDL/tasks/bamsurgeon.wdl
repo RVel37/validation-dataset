@@ -16,21 +16,35 @@ task bamsurgeon {
     Int cpu = (threads)/2
 
     command <<<
-        # debug
+        
         echo "Running bamsurgeon with BAM: ~{bam} + BED: ~{bed} for the ~{fam_member}"
 
         tar -xvzf ~{refGenomeBwaTar}
         fasta=$(*.fasta)
+        
+        echo "ls:"; ls
 
-        python3 /bamsurgeon/bin/addsnv.py \
-            -v ~{bed} \
-            -f ~{bam} \
-            --aligner mem \
-            --picardjar /picard.jar \
-            -p 8 \
-            -d 0.6 \
-            -o ~{basename(bam)}.~{fam_member}.out.bam \
-            -r $fasta
+        # DEBUG - CANT FIND PATH #
+        ADDSNV_PATH=$(find /bamsurgeon /usr /opt / -type f -name addsnv.py 2>/dev/null | head -n 1)
+
+        if [[ -z "$ADDSNV_PATH" ]]; then
+            echo "ERROR: addsnv.py not found anywhere on system!" >&2
+            echo "Contents of /bamsurgeon/bin (if exists):"
+            ls -l /bamsurgeon/bin 2>/dev/null || echo "No /bamsurgeon/bin directory."
+            exit 1
+        fi
+
+        echo "Found addsnv.py at: $ADDSNV_PATH"
+
+        python3 "$ADDSNV_PATH" \
+                -v ~{bed} \
+                -f ~{bam} \
+                --aligner mem \
+                --picardjar /picard.jar \
+                -p 8 \
+                -d 0.6 \
+                -o ~{basename(bam)}.~{fam_member}.out.bam \
+                -r ${fasta}
 
     >>>
 
