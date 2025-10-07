@@ -19,10 +19,12 @@ task bamsurgeon {
         
         echo "Running bamsurgeon with BAM: ~{bam} + BED: ~{bed} for the ~{fam_member}"
 
-        tar -xvzf ~{refGenomeBwaTar}
-        fasta=$(*.fasta)
+        # unpack reference genome
+        mkdir -p ref
+        tar -zxvf ~{refGenomeBwaTar} -C ref --no-same-owner
+        referenceFasta=$(ls ref/*.fasta | head -n1)
         
-        echo "ls:"; ls
+        echo "ls:"; ls; ls ref
 
         # DEBUG - CANT FIND PATH #
         ADDSNV_PATH=$(find /bamsurgeon /usr /opt / -type f -name addsnv.py 2>/dev/null | head -n 1)
@@ -39,12 +41,12 @@ task bamsurgeon {
         python3 "$ADDSNV_PATH" \
                 -v ~{bed} \
                 -f ~{bam} \
+                -r ${referenceFasta} \
                 --aligner mem \
                 --picardjar /picard.jar \
                 -p 8 \
                 -d 0.6 \
-                -o ~{basename(bam)}.~{fam_member}.out.bam \
-                -r ${fasta}
+                -o ~{basename(bam)}.~{fam_member}.out.bam 
 
     >>>
 
