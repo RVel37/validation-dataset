@@ -58,6 +58,6 @@ task debug_print {
     >>>
 
     runtime {
-        docker: "ubuntu:22.04"
+        docker: "ubuntu:24.04"
     }
 }

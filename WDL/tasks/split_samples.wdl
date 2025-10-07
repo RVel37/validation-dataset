@@ -14,7 +14,7 @@ task split_samples {
     Int disk_gb = ceil( 2* (size(bam, "GiB"))) + 2
     String mem = "16 GB"
     Int threads = 16
-    Int cpu = (threads)/2
+    Int cpu = (threads)
 
     command <<<
         echo "Input BAM: ~{bam}"
@@ -23,11 +23,16 @@ task split_samples {
         mkdir -p split_bams split_beds
 
         # Split BED
+
+        sed 's/^MT/M/' ~{bed} > tmp.bed && mv tmp.bed ~{bed}
         echo "splitting BED for ~{fam_member}"
         awk -v outdir="split_beds" '{ print > (outdir "/" $1 ".bed") }' "~{bed}"
 
+        echo "BEDs created:"
+        ls split_beds
+
         # Split BAM
-        for chr in {1..22} X Y; do
+        for chr in {1..22} M X; do
             echo "Extracting BAM for $chr"
             samtools view -b "~{bam}" "$chr" > "split_bams/$chr.bam"
         done
@@ -38,8 +43,8 @@ task split_samples {
     >>>
 
     output {
-        Array[File] bam_array = glob("split_bams/~{fam_member}/*.bam")
-        Array[File] bed_array = glob("split_beds/~{fam_member}/*.bed")
+        Array[File] bam_array = glob("split_bams/*.bam")
+        Array[File] bed_array = glob("split_beds/*.bed")
     }
 
     runtime {

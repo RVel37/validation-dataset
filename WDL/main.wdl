@@ -31,7 +31,7 @@ workflow main {
 
         # scatter over aligned BED and BAM arrays
         scatter (i in range(length(split.bam_array))) {
-            call debug_print {
+            call bamsurgeon.debug_print {
                 input:
                     bam = split.bam_array[i],
                     bed = split.bed_array[i],
