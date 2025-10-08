@@ -34,12 +34,14 @@ workflow main {
             call bamsurgeon.debug_print {
                 input:
                     bam = split.bam_array[i],
+                    bai = split.bai_array[i],
                     bed = split.bed_array[i],
             }
 
-            call bamsurgeon.bamsurgeon as spike {
+            call bamsurgeon.bamsurgeon as spike_in {
                 input:
                     bam = split.bam_array[i],
+                    bai = split.bai_array[i],
                     bed = split.bed_array[i],
                     refGenomeBwaTar = refGenomeBwaTar,
                     fam_member = s.fam_member,
@@ -48,7 +50,7 @@ workflow main {
         }
 
         # collect the output of bamsurgeon task
-        Array[File] spiked_bam_array = spike.spiked_bams
+        Array[File] spiked_bam_array = spike_in.spiked_bams
 
         call merge_bams.merge_bams {
             input:

@@ -34,8 +34,9 @@ task split_samples {
         for chr in {1..2}; do
             echo "Extracting BAM for $chr"
             samtools view -b "~{bam}" "$chr" > "split_bams/$chr.bam"
+            samtools index "split_bams/$chr.bam" 
         done
-        
+
         echo "BAMs created: "
         ls split_bams
 
@@ -44,6 +45,7 @@ task split_samples {
     output {
         Array[File] bam_array = glob("split_bams/*.bam")
         Array[File] bed_array = glob("split_beds/*.bed")
+        Array[File] bai_array = glob("split_bams/*.bai")
     }
 
     runtime {
