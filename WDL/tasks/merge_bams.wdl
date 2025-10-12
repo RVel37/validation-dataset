@@ -9,8 +9,8 @@ task merge_bams {
 
     Int disk_gb = ceil(1.5 * size(bams, "GiB"))
     String mem = "16 GB"
-    Int threads = 16
-    Int cpu = (threads)/2
+    Int threads = 8
+    Int cpu = 8
 
     command <<<
         # DEBUG
@@ -19,14 +19,14 @@ task merge_bams {
             echo $bam
         done
 
-        echo "Merging BAMs for ~{fam_member}:"
+        echo "Merging BAMs for ~{fam_member}"
         samtools merge -@ ~{threads} merged_~{fam_member}.bam ~{sep=' ' bams}
 
-        echo "Sorting merged BAM:"
+        echo "Sorting merged BAM"
         samtools sort -@ ~{threads} -o final_~{fam_member}.bam merged_~{fam_member}.bam
 
-        echo "Indexing sorted BAM:"
-        samtools index final_~{fam_member}.bam
+        echo "Indexing sorted BAM"
+        samtools index -@ ~{threads} final_~{fam_member}.bam
     >>>
 
     output {

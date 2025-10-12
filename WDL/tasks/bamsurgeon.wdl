@@ -11,13 +11,14 @@ task bamsurgeon {
     }
 
     # dynamic instance
-    Int disk_gb = ceil( 2* (size(bam, "GiB"))) + 2
-    String mem = "32 GB"
-    Int threads = 16
-    Int cpu = (threads)/2
+    Int disk_gb = ceil( 1.3 * (size(bam, "GiB")))
+    String mem = "16 GB"
+    Int threads = 8
+    Int cpu = (threads)
 
     command <<<
-        
+        echo "usage at start ($(date))"; free -h; df -h /
+
         echo "Running bamsurgeon with BAM: ~{bam} + BED: ~{bed} for the ~{fam_member}"
 
         # unpack reference genome
@@ -28,21 +29,22 @@ task bamsurgeon {
         echo "DEBUG: Checking for picard.jar"
         find / -maxdepth 5 -type f -name "picard.jar" 2>/dev/null || echo "picard.jar not found!"
 
-
         python3 /usr/local/bin/addsnv.py \
                 -v ~{bed} \
                 -f ~{bam} \
                 -r ${referenceFasta} \
                 --aligner mem \
                 --picardjar /usr/local/bin/picard.jar \
-                -p 12 \
+                -p ${threads} \
                 -d 0.6 \
-                -o ~{basename(bam)}.~{fam_member}.out.bam 
+                -o ~{basename(bam, ".bam")}.~{fam_member}.out.bam
+
+                echo "usage at end ($(date))"; free -h; df -h /
 
     >>>
 
     output {
-        File spiked_bams = "~{basename(bam)}.~{fam_member}.out.bam"
+        File spiked_bams = "~{basename(bam, '.bam')}.~{fam_member}.out.bam"
     }
 
     runtime {
@@ -51,25 +53,5 @@ task bamsurgeon {
         memory: "${mem}"
         disks: "local-disk ${disk_gb} SSD"
         docker: "${dockerBamsurgeon}"
-    }
-}
-
-
-#########################################################################
-
-task debug_print {
-    input {
-        File bam
-        File bai
-        File bed
-    }
-    command <<<
-        echo "BAM: ~{bam}"
-        echo "BAI: ~{bai}"
-        echo "BED: ~{bed}"
-    >>>
-
-    runtime {
-        docker: "ubuntu:24.04"
     }
 }

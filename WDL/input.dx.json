@@ -11,7 +11,7 @@
     }
   }, {
     "$dnanexus_link": {
-      "id": "file-J2Xpgy849jJ7J5z1FYqFXKpZ",
+      "id": "file-J3bjQF849jJF5XBPkk4PJkY5",
       "project": "project-J00J2YQ49jJKz0Xq6yB4qB4x"
     }
   }],
@@ -37,7 +37,7 @@
       },
       "bed": {
         "$dnanexus_link": {
-          "id": "file-J2Xpgy849jJ7J5z1FYqFXKpZ",
+          "id": "file-J3bjQF849jJF5XBPkk4PJkY5",
           "project": "project-J00J2YQ49jJKz0Xq6yB4qB4x"
         }
       },
