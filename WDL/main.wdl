@@ -44,7 +44,7 @@ workflow main {
         }
 
         # collect the output of bamsurgeon task
-        Array[File?] spiked_bam_array = spike_in.spiked_bams
+        Array[File] spiked_bam_array = spike_in.spiked_bams
 
         call merge_bams.merge_bams {
             input:
@@ -55,7 +55,7 @@ workflow main {
     }
 
     output {
-        Array[File?] bams = merge_bams.final
-        Array[File?] bais = merge_bams.final_idx
+        Array[File] bams = merge_bams.final
+        Array[File] bais = merge_bams.final_idx
     }
 }

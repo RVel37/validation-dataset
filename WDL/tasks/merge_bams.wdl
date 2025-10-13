@@ -2,27 +2,25 @@ version 1.0
 
 task merge_bams {
     input {
-        Array[File?] bams
+        Array[File] bams
         String fam_member
         String dockerSamtools
     }
 
-    Int disk_gb = 64
-    String mem = "16 GB"
+    Int disk_gb = ceil(1.5 * size(bams, "GiB"))
+    String mem = "32 GB"
     Int threads = 8
-    Int cpu = 8
-
-    Array[File] present_bams = select_all(bams) # remove nulls
+    Int cpu = threads
 
     command <<<
 
         echo "List of BAMs:"
-        for bam in ~{sep=' ' present_bams}; do
+        for bam in ~{sep=' ' bams}; do
             echo $bam
         done
 
         echo "Merging BAMs for ~{fam_member}"
-        samtools merge -@ 8 merged_~{fam_member}.bam ~{sep=' ' present_bams}
+        samtools merge -@ 8 merged_~{fam_member}.bam ~{sep=' ' bams}
 
         echo "Sorting merged BAM"
         samtools sort -@ 8 -o final_~{fam_member}.bam merged_~{fam_member}.bam
@@ -32,8 +30,8 @@ task merge_bams {
     >>>
 
     output {
-        File? final = "final_~{fam_member}.bam"
-        File? final_idx = "final_~{fam_member}.bam.bai"
+        File final = "final_~{fam_member}.bam"
+        File final_idx = "final_~{fam_member}.bam.bai"
     }
 
     runtime {
