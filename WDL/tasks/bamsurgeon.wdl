@@ -11,7 +11,7 @@ task bamsurgeon {
     }
 
     # dynamic instance
-    Int disk_gb = ceil((size(bam, "GiB"))) + 10
+    Int disk_gb = 100
     String mem = "32 GB"
     Int threads = 8
     Int cpu = (threads)
@@ -34,7 +34,7 @@ task bamsurgeon {
                 --aligner mem \
                 --picardjar /usr/local/bin/picard.jar \
                 -p 8 \
-                -d 0.6 \
+                -d 0.3 \
                 -o ~{basename(bam, ".bam")}.~{fam_member}.out.bam
 
         echo "usage at end ($(date))"; free -h; df -h /
