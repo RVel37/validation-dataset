@@ -39,6 +39,12 @@ task bamsurgeon {
 
         echo "usage at end ($(date))"; free -h; df -h /
 
+        if [ ! -s "~{basename(bam, ".bam")}.~{fam_member}.out.bam" ]; then
+            echo "No spiked bam was generated for this chromosome. "
+            exit 0
+        fi
+
+
     >>>
 
     output {
