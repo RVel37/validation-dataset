@@ -33,8 +33,8 @@ task split_samples {
         # Split BAM
         for chr in {1..22} M X; do
             echo "Extracting BAM for $chr"
-            samtools view -@{threads} -b "~{bam}" "$chr" > "split_bams/$chr.bam"
-            samtools index "split_bams/$chr.bam" 
+            samtools view -@ 16 -b "~{bam}" "$chr" > "split_bams/$chr.bam"
+            samtools index -@ 16 "split_bams/$chr.bam" 
         done
 
         echo "BAMs created: "

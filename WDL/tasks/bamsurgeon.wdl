@@ -11,13 +11,14 @@ task bamsurgeon {
     }
 
     # dynamic instance
-    Int disk_gb = ceil( 1.3 * (size(bam, "GiB")))
-    String mem = "16 GB"
+    Int disk_gb = ceil((size(bam, "GiB"))) + 10
+    String mem = "32 GB"
     Int threads = 8
     Int cpu = (threads)
 
     command <<<
         echo "usage at start ($(date))"; free -h; df -h /
+        du -h "~{bam}"
 
         echo "Running bamsurgeon with BAM: ~{bam} + BED: ~{bed} for the ~{fam_member}"
 
@@ -25,9 +26,6 @@ task bamsurgeon {
         mkdir -p ref
         tar -zxvf ~{refGenomeBwaTar} -C ref --no-same-owner
         referenceFasta=$(ls ref/*.fasta | head -n1)
-        
-        echo "DEBUG: Checking for picard.jar"
-        find / -maxdepth 5 -type f -name "picard.jar" 2>/dev/null || echo "picard.jar not found!"
 
         python3 /usr/local/bin/addsnv.py \
                 -v ~{bed} \
@@ -35,16 +33,16 @@ task bamsurgeon {
                 -r ${referenceFasta} \
                 --aligner mem \
                 --picardjar /usr/local/bin/picard.jar \
-                -p ${threads} \
+                -p 8 \
                 -d 0.6 \
                 -o ~{basename(bam, ".bam")}.~{fam_member}.out.bam
 
-                echo "usage at end ($(date))"; free -h; df -h /
+        echo "usage at end ($(date))"; free -h; df -h /
 
     >>>
 
     output {
-        File spiked_bams = "~{basename(bam, '.bam')}.~{fam_member}.out.bam"
+        File? spiked_bams = "~{basename(bam, '.bam')}.~{fam_member}.out.bam"
     }
 
     runtime {

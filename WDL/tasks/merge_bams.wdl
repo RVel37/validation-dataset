@@ -2,7 +2,7 @@ version 1.0
 
 task merge_bams {
     input {
-        Array[File] bams
+        Array[File?] bams
         String fam_member
         String dockerSamtools
     }
@@ -20,18 +20,18 @@ task merge_bams {
         done
 
         echo "Merging BAMs for ~{fam_member}"
-        samtools merge -@ ~{threads} merged_~{fam_member}.bam ~{sep=' ' bams}
+        samtools merge -@ 8 merged_~{fam_member}.bam ~{sep=' ' bams}
 
         echo "Sorting merged BAM"
-        samtools sort -@ ~{threads} -o final_~{fam_member}.bam merged_~{fam_member}.bam
+        samtools sort -@ 8 -o final_~{fam_member}.bam merged_~{fam_member}.bam
 
         echo "Indexing sorted BAM"
-        samtools index -@ ~{threads} final_~{fam_member}.bam
+        samtools index -@ 8 final_~{fam_member}.bam
     >>>
 
     output {
-        File final = "final_~{fam_member}.bam"
-        File final_idx = "final_~{fam_member}.bam.bai"
+        File? final = "final_~{fam_member}.bam"
+        File? final_idx = "final_~{fam_member}.bam.bai"
     }
 
     runtime {
