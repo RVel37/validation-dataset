@@ -1,8 +1,6 @@
 # Validation Dataset
 
-> This repository is under active development
-
-The goal of this project is to create a validation cohort using [BamSurgeon](https://github.com/adamewing/bamsurgeon), a tool that allows variants to be inserted into preexisting BAM files. By creating "FrankenBAM" samples with spliced-in variants, we can validate hundreds of variants within a single sample, significantly reducing both the time and computational resources required for validation purposes. 
+We created a validation cohort using [BamSurgeon](https://github.com/adamewing/bamsurgeon), a tool that allows variants to be inserted into preexisting BAM files. By creating "FrankenBAM" samples with spliced-in variants, we can validate hundreds of variants within a single sample, significantly reducing both the time and computational resources required for validation purposes. 
 
 ---
 ## Prerequisites
@@ -39,16 +37,13 @@ As exomes/genomes are run as family trios, we also require a BED file representi
 
 Using BamSurgeon's `addsnv.py` script to splice in SNVs. 
 
-Command for bamsurgeon:
+Basic command:
 ```bash
 python3 /bamsurgeon/bin/addsnv.py  -v input.bed -f input.bam --aligner mem --picardjar /picard.jar -p 8 -o output.bam -r ref.fasta
 ```
 
-#### WORK IN PROGRESS:
-Currently, our aim is to implement and test a workflow for running `addsnv.py` across four families of trios (one male proband and one female proband, for both WGS and WES data).
-- The bash script implementation `process_bams.sh` was a first attempt that loops through samples, but may be too slow for large datasets. 
-- A WDL workflow (`/WDL`) is being tested as a more scalable implementation (in development).
+BamSurgeon works most optimally on small data such as targeted NGS samples. When testing it interactively on our larger WGS samples, we found it was impractical due to the time taken. This led us to implement a scalable WDL workflow for running `addsnv.py` across our four families of trios (one male proband and one female proband, for both WGS and WES data). 
 
 ---
 
-Project being undertaken as a component of my STP training. 
+This project was undertaken as a component of the NHS Scientist Training Program. 
