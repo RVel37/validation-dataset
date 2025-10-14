@@ -7,37 +7,45 @@ task split_samples {
         File bai
         File bed
         String fam_member
+        String dockerSamtools
     }
 
     # dynamic instance
-    Int disk_gb = ceil( 2* (size(bam, "GiB"))) + 2
-    String mem = "8 GB"
-    Int threads = 4
-    Int cpu = (threads)/2
+    Int disk_gb = ceil(1.5*(size(bam, "GiB")))
+    String mem = "16 GB"
+    Int threads = 16
+    Int cpu = (threads)
 
     command <<<
+        echo "Input BAM: ~{bam}"
+        echo "Input BED: ~{bed}"
 
-        sample=~{fam_member}
+        mkdir -p split_bams split_beds
 
-        mkdir -p split_beds/$sample
-        mkdir -p split_bams/$sample
+        # Split BED
+        sed 's/^MT/M/' ~{bed} > tmp.bed && mv tmp.bed ~{bed}
+        echo "splitting BED for ~{fam_member}"
+        awk -v outdir="split_beds" '{ print > (outdir "/" $1 ".bed") }' "~{bed}"
 
-        # Split BED by chromosome
-        awk -v outdir="split_beds/$sample" '{ print > (outdir "/" $1 ".bed") }' "~{bed}"
+        echo "BEDs created:"
+        ls split_beds
 
-        # Split BAM by chromosome + index
-        for chrom in $(samtools idxstats "~{bam}" | cut -f1 | grep -v '\*' | sort -V); do
-            bam_out="split_bams/$sample/${chrom}.bam"
-            bed_out="split_beds/$sample/${chrom}.bed"
-            samtools view -b "~{bam}" "$chrom" > "$bam_out"
-            samtools index "$bam_out"
+        # Split BAM
+        for chr in {1..22} M X; do
+            echo "Extracting BAM for $chr"
+            samtools view -@ 16 -b "~{bam}" "$chr" > "split_bams/$chr.bam"
+            samtools index -@ 16 "split_bams/$chr.bam" 
         done
+
+        echo "BAMs created: "
+        ls split_bams
 
     >>>
 
     output {
-        Array[File] bam_array = sort(glob("split_bams/~{fam_member}/*.bam"))
-        Array[File] bed_array = sort(glob("split_beds/~{fam_member}/*.bed"))
+        Array[File] bam_array = glob("split_bams/*.bam")
+        Array[File] bed_array = glob("split_beds/*.bed")
+        Array[File] bai_array = glob("split_bams/*.bai")
     }
 
     runtime {
@@ -45,5 +53,6 @@ task split_samples {
         gpu: false
         memory: "${mem}"
         disks: "local-disk ${disk_gb} SSD"
+        docker: "${dockerSamtools}"
     }
 }
