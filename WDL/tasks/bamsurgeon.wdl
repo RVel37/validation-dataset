@@ -45,7 +45,6 @@ task bamsurgeon {
             echo "No spiked bam was generated for this chromosome. Using original bam. "
             # if addsnv produced nothing, copy input bam instead
             cp "~{bam}" "${outbam}"
-            exit 0
         fi
 
     >>>
