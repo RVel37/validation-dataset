@@ -1,5 +1,4 @@
 #!/bin/bash
-set -euo pipefail
 mkdir -p outputs split_beds split_bams
 
 REFERENCE_GENOME="/reference_genome.fasta"
