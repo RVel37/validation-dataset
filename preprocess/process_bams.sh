@@ -1,7 +1,7 @@
 #!/bin/bash
 mkdir -p outputs split_beds split_bams
 
-REFERENCE_GENOME="/data/genome/GCA_000001405.15_GRCh38_no_alt_analysis_set_plus_hs38d1_maskedGRC_exclusions_v2_no_chr.fasta"
+REFERENCE_GENOME="/reference_genome.fasta"
 
 # Pull required Docker images
 docker pull biocontainers/samtools:v1.9-4-deb_cv1
