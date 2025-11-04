@@ -1,0 +1,13 @@
+{
+  "main.samples": [
+    {
+      "bam": "dx://project-J00J2YQ49jJKz0Xq6yB4qB4x:",
+      "bai": "dx://project-J00J2YQ49jJKz0Xq6yB4qB4x:",
+      "bed": "dx://project-J00J2YQ49jJKz0Xq6yB4qB4x:",
+      "fam_member": "proband"
+    }
+  ],
+  "main.refGenomeBwaTar":"dx://project-J00J2YQ49jJKz0Xq6yB4qB4x:file-GJqg9Jj4fq4V3185F49Qp99Q",
+  "main.dockerSamtools":"dx://project-J00J2YQ49jJKz0Xq6yB4qB4x:file-J33X74849jJFVK9V4z0XgkPv",
+  "main.dockerBamsurgeon":"dx://project-J00J2YQ49jJKz0Xq6yB4qB4x:file-J364Qx049jJ2fqqGBJZ8Px46"
+}

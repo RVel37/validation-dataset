@@ -9,8 +9,8 @@ task merge_bams {
 
     Int disk_gb = ceil(1.5 * size(bams, "GiB"))
     String mem = "32 GB"
-    Int threads = 8
-    Int cpu = threads
+    Int threads = 16
+    Int cpu = (threads)/2
 
     command <<<
 
@@ -30,8 +30,8 @@ task merge_bams {
     >>>
 
     output {
-        File final = "final_~{fam_member}.bam"
-        File final_idx = "final_~{fam_member}.bam.bai"
+        File coord_bam = "final_~{fam_member}.bam"
+        File coord_bam_idx = "final_~{fam_member}.bam.bai"
     }
 
     runtime {

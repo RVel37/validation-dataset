@@ -3,6 +3,7 @@ version 1.0
 import "tasks/split_samples.wdl" as split_samples
 import "tasks/bamsurgeon.wdl" as bamsurgeon
 import "tasks/merge_bams.wdl" as merge_bams
+import "tasks/bam_to_fastq.wdl" as bam_to_fastq
 
 struct SampleInputs {
     File bam
@@ -31,7 +32,7 @@ workflow main {
 
         # scatter over aligned BED and BAM arrays
         scatter (i in range(length(split.bam_array))) {
-            
+
             call bamsurgeon.bamsurgeon as spike_in {
                 input:
                     bam = split.bam_array[i],
@@ -49,13 +50,24 @@ workflow main {
         call merge_bams.merge_bams {
             input:
             bams = spiked_bam_array,
-            fam_member=s.fam_member
+            fam_member=s.fam_member,
+            dockerSamtools=dockerSamtools
+        }
+
+        call bam_to_fastq.bam_to_fastq {
+            input: 
+            coord_bam = merge_bams.coord_bam,
+            fam_member=s.fam_member,
             dockerSamtools=dockerSamtools
         }
     }
 
     output {
-        Array[File] bams = merge_bams.final
-        Array[File] bais = merge_bams.final_idx
+        # collect coord-sorted bams (enables inspection in IGV)
+        Array[File] coord_bams = merge_bams.coord_bam
+        Array[File] coord_bais = merge_bams.coord_bam_idx
+        # fastqs
+        Array[File] r1_fastqs = bam_to_fastq.r1_fastq
+        Array[File] r2_fastqs = bam_to_fastq.r2_fastq
     }
 }
