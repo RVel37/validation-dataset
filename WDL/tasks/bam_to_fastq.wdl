@@ -14,10 +14,16 @@ task bam_to_fastq {
 	Int task_threads = (threads) - 4
 
     command <<<
+    # coord -> queryname sorted bam
+    samtools sort -n \
+    -@ 8 \
+    -o qsorted_~{fam_member}.bam \
+    ~{coord_bam}
+
 	# fixmate (rebuild mate fields and correct mate flags)
 	samtools fixmate \
 	-@ ~{task_threads} \
-	-m ~{coord_bam} \
+	-m qsorted_~{fam_member}.bam \
 	fixmate_~{fam_member}.bam
 
 	# bam to fastq
