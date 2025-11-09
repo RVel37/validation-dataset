@@ -7,7 +7,7 @@ task bam_to_fastq {
         String dockerSamtools
     }
 
-    Int disk_gb = ceil(1.5 * size(coord_bam, "GiB"))
+    Int disk_gb = ceil(3 * size(coord_bam, "GiB"))
     String mem = "16 GB"
     Int threads = 16
     Int cpu = (threads)/2
@@ -19,6 +19,8 @@ task bam_to_fastq {
     -@ 8 \
     -o qsorted_~{fam_member}.bam \
     ~{coord_bam}
+
+    df -h . #debug
 
 	# fixmate (rebuild mate fields and correct mate flags)
 	samtools fixmate \

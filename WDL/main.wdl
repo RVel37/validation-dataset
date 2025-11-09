@@ -54,12 +54,12 @@ workflow main {
             dockerSamtools=dockerSamtools
         }
 
-        call bam_to_fastq.bam_to_fastq {
-            input: 
-            coord_bam = merge_bams.coord_bam,
-            fam_member=s.fam_member,
-            dockerSamtools=dockerSamtools
-        }
+        # call bam_to_fastq.bam_to_fastq {
+        #     input: 
+        #     coord_bam = merge_bams.coord_bam,
+        #     fam_member=s.fam_member,
+        #     dockerSamtools=dockerSamtools
+        # }
     }
 
     output {
@@ -67,7 +67,7 @@ workflow main {
         Array[File] coord_bams = merge_bams.coord_bam
         Array[File] coord_bais = merge_bams.coord_bam_idx
         # fastqs
-        Array[File] r1_fastqs = bam_to_fastq.r1_fastq
-        Array[File] r2_fastqs = bam_to_fastq.r2_fastq
+        # Array[File] r1_fastqs = bam_to_fastq.r1_fastq
+        # Array[File] r2_fastqs = bam_to_fastq.r2_fastq
     }
 }
