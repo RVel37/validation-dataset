@@ -13,13 +13,25 @@ task bam_to_fastq {
     Int cpu = (threads)/2
 
     command <<<
-	# bam to fastq
 
-        samtools fastq -@ 8 \
+    # convert coord -> queryname sorted bam
+    samtools sort -n \
+    -@ ~{threads} \
+    -o qsorted_~{fam_member}.bam \
+    ~{coord_bam}
+
+    # fixmate (rebuild mate fields & correct flags)
+    samtools fixmate \
+    -@ ~{threads} \
+    -m qsorted_~{fam_member}.bam \
+    fixmate_~{fam_member}.bam
+
+    # convert to bgzipped fastq
+    samtools fastq -@ 8 \
         -1 >(bgzip -@ 4 > R1_~{fam_member}.fastq.gz) \
         -2 >(bgzip -@ 4 > R2_~{fam_member}.fastq.gz) \
-        ~{coord_bam}
-    
+        fixmate_~{fam_member}.bam
+
 	>>>
 
     output {
