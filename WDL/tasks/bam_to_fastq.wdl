@@ -4,43 +4,27 @@ task bam_to_fastq {
     input {
         File coord_bam
         String fam_member
-        String dockerSamtools
+        String dockerHtslib
     }
 
     Int disk_gb = ceil(3 * size(coord_bam, "GiB"))
     String mem = "16 GB"
     Int threads = 16
     Int cpu = (threads)/2
-	Int task_threads = (threads) - 4
 
     command <<<
-    # coord -> queryname sorted bam
-    samtools sort -n \
-    -@ 8 \
-    -o qsorted_~{fam_member}.bam \
-    ~{coord_bam}
-
-    df -h . #debug
-
-	# fixmate (rebuild mate fields and correct mate flags)
-	samtools fixmate \
-	-@ ~{task_threads} \
-	-m qsorted_~{fam_member}.bam \
-	fixmate_~{fam_member}.bam
-
 	# bam to fastq
-	samtools fastq -@ ~{task_threads} \
-	-1 R1_~{fam_member}.fastq \
-	-2 R2_~{fam_member}.fastq \
-	-0 /dev/null \
-	-s /dev/null \
-	fixmate_~{fam_member}.bam
 
+        samtools fastq -@ 8 \
+        -1 >(bgzip -@ 4 > R1_~{fam_member}.fastq.gz) \
+        -2 >(bgzip -@ 4 > R2_~{fam_member}.fastq.gz) \
+        ~{coord_bam}
+    
 	>>>
 
     output {
-        File r1_fastq = "R1_~{fam_member}.fastq"
-        File r2_fastq = "R2_~{fam_member}.fastq"
+        File r1_fastq = "R1_~{fam_member}.fastq.gz"
+        File r2_fastq = "R2_~{fam_member}.fastq.gz"
     }
 
     runtime {
@@ -48,6 +32,6 @@ task bam_to_fastq {
         gpu: false
         memory: "${mem}"
         disks: "local-disk ${disk_gb} SSD"
-        docker: "${dockerSamtools}"
+        docker: "${dockerHtslib}"
     }
 }
