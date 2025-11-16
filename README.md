@@ -35,14 +35,19 @@ As exomes/genomes are run as family trios, we also require a BED file representi
 
 ## 3. Running BamSurgeon
 
-Using BamSurgeon's `addsnv.py` script to splice in SNVs. 
+BamSurgeon works optimally on small data such as targeted NGS samples. When testing it interactively on our larger WGS samples, we found it was impractical due to the time taken. 
+This led us to implement a scalable WDL workflow for running `addsnv.py` across our four families. 
 
-Basic command:
-```bash
-python3 /bamsurgeon/bin/addsnv.py  -v input.bed -f input.bam --aligner mem --picardjar /picard.jar -p 8 -o output.bam -r ref.fasta
-```
+STEP 1: `main.wdl`
+- Takes array of samples (each sample containing the BAM, BAI, BED files, and character string indicating family member).
+- Splits input BAM chromosome-wise and performs BAMsurgeon's `addsnv.py` on each sample.
+- Merges per-chromosome BAMs with spiked in variants.
+- Output: coordinate-sorted BAM + BAI
 
-BamSurgeon works most optimally on small data such as targeted NGS samples. When testing it interactively on our larger WGS samples, we found it was impractical due to the time taken. This led us to implement a scalable WDL workflow for running `addsnv.py` across our four families of trios (one male proband and one female proband, for both WGS and WES data). 
+STEP 2: `fastqs.wdl`
+- Takes output BAMs from step 1, converts BAM from coord-sorted to queryname-sorted (for compatibility with `samtools fastq`)
+- Converts to fastq and bgzips
+- Output: `.fastq.gz` files
 
 ---
 
