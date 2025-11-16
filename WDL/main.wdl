@@ -3,7 +3,6 @@ version 1.0
 import "tasks/split_samples.wdl" as split_samples
 import "tasks/bamsurgeon.wdl" as bamsurgeon
 import "tasks/merge_bams.wdl" as merge_bams
-import "tasks/bam_to_fastq.wdl" as bam_to_fastq
 
 struct SampleInputs {
     File bam
@@ -54,19 +53,14 @@ workflow main {
             dockerSamtools=dockerSamtools
         }
 
-        # call bam_to_fastq.bam_to_fastq {
-        #     input: 
-        #     coord_bam = merge_bams.coord_bam,
-        #     fam_member=s.fam_member,
-        #     dockerSamtools=dockerSamtools
-        # }
     }
 
     output {
         # collect coord-sorted bams (enables inspection in IGV)
         Array[File] coord_bams = merge_bams.coord_bam
         Array[File] coord_bais = merge_bams.coord_bam_idx
-        # fastqs
+
+        # fastqs (bam to fastq step to be executed in separate fastq workflow)
         # Array[File] r1_fastqs = bam_to_fastq.r1_fastq
         # Array[File] r2_fastqs = bam_to_fastq.r2_fastq
     }
