@@ -2,12 +2,12 @@ version 1.0
 
 task bam_to_fastq {
     input {
-        File coord_bam
+        File bam
         String fam_member
         String dockerHtslib
     }
 
-    Int disk_gb = ceil(3 * size(coord_bam, "GiB"))
+    Int disk_gb = ceil(3 * size(bam, "GiB"))
     String mem = "16 GB"
     Int threads = 16
     Int cpu = (threads)/2
@@ -18,7 +18,7 @@ task bam_to_fastq {
     samtools sort -n \
     -@ ~{threads} \
     -o qsorted_~{fam_member}.bam \
-    ~{coord_bam}
+    ~{bam}
 
     # fixmate (rebuild mate fields & correct flags)
     samtools fixmate \

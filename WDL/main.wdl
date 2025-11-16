@@ -52,13 +52,12 @@ workflow main {
             fam_member=s.fam_member,
             dockerSamtools=dockerSamtools
         }
-
     }
 
     output {
         # collect coord-sorted bams (enables inspection in IGV)
-        Array[File] coord_bams = merge_bams.coord_bam
-        Array[File] coord_bais = merge_bams.coord_bam_idx
+        Array[File] final_bams = merge_bams.bam
+        Array[File] final_bais = merge_bams.bai
 
         # fastqs (bam to fastq step to be executed in separate fastq workflow)
         # Array[File] r1_fastqs = bam_to_fastq.r1_fastq

@@ -16,7 +16,7 @@ workflow fastqs {
     scatter (s in samples) {
         call bam_to_fastq.bam_to_fastq {
             input:
-            coord_bam = s.bam,
+            bam = s.bam,
             fam_member=s.fam_member,
             dockerHtslib=dockerHtslib
             

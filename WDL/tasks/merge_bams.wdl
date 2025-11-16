@@ -30,8 +30,8 @@ task merge_bams {
     >>>
 
     output {
-        File coord_bam = "final_~{fam_member}.bam"
-        File coord_bam_idx = "final_~{fam_member}.bam.bai"
+        File bam = "final_~{fam_member}.bam"
+        File bai = "final_~{fam_member}.bam.bai"
     }
 
     runtime {
