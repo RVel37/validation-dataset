@@ -44,8 +44,8 @@ task split_samples {
 
     output {
         Array[File] bam_array = glob("split_bams/*.bam")
-        Array[File] bed_array = glob("split_beds/*.bed")
         Array[File] bai_array = glob("split_bams/*.bai")
+        Array[File] bed_array = glob("split_beds/*.bed")
     }
 
     runtime {

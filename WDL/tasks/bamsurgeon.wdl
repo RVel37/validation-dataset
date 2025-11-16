@@ -12,7 +12,7 @@ task bamsurgeon {
 
     # dynamic instance
     Int disk_gb = ceil((size(bam, "GiB"))) + 10
-    String mem = "32 GB"
+    String mem = "16 GB"
     Int threads = 8
     Int cpu = (threads)
 
@@ -29,6 +29,7 @@ task bamsurgeon {
 
         outbam="~{basename(bam, ".bam")}.~{fam_member}.out.bam"
 
+        timeout 3600 \ # bamsurgeon occasionally gets stuck if no mutations are added
         python3 /usr/local/bin/addsnv.py \
                 -v ~{bed} \
                 -f ~{bam} \
@@ -41,7 +42,7 @@ task bamsurgeon {
 
         echo "usage at end ($(date))"; free -h; df -h /
 
-        if [ ! -s "${outbam}" ]; then
+        if [ ! -s "${outbam}" ] ; then
             echo "No spiked bam was generated for this chromosome. Using original bam. "
             # if addsnv produced nothing, copy input bam instead
             cp "~{bam}" "${outbam}"
