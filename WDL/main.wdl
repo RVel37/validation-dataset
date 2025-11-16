@@ -7,7 +7,7 @@ struct SampleInputs {
     String fam_member
 }
 
-workflow main {
+workflow fastqs {
     input {
         Array[SampleInputs] samples
         String dockerHtslib
