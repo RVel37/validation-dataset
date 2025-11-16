@@ -1,6 +1,6 @@
 # Validation Dataset
 
-We created a validation cohort using [BamSurgeon](https://github.com/adamewing/bamsurgeon), a tool that allows variants to be inserted into preexisting BAM files. By creating "FrankenBAM" samples with spliced-in variants, we can validate hundreds of variants within a single sample, significantly reducing both the time and computational resources required for validation purposes. 
+We created a validation cohort using [BamSurgeon](https://github.com/adamewing/bamsurgeon), a tool that inserts variants into into preexisting BAM files. By creating "FrankenBAM" samples containing spiked-in variants, we can validate hundreds of variants within a single sample, significantly reducing both time and computational resources required for validation purposes. 
 
 ---
 ## Prerequisites
