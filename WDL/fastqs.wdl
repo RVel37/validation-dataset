@@ -18,9 +18,8 @@ workflow fastqs {
             input:
             bam = s.bam,
             fam_member=s.fam_member,
-            dockerHtslib=dockerHtslib
-            
-        }    
+            dockerHtslib=dockerHtslib    
+        } 
     }
 
     output {

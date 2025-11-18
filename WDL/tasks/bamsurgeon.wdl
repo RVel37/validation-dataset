@@ -14,7 +14,7 @@ task bamsurgeon {
     Int disk_gb = ceil((size(bam, "GiB"))) + 10
     String mem = "16 GB"
     Int threads = 8
-    Int cpu = (threads)
+    Int cpu = (threads)/2
 
     command <<<
         echo "usage at start ($(date))"; free -h; df -h /
@@ -37,7 +37,8 @@ task bamsurgeon {
                 --aligner mem \
                 --picardjar /usr/local/bin/picard.jar \
                 -p 8 \
-                -d 0.3 \
+                -d 0.2 \
+                --force \
                 -o ${outbam}
 
         echo "usage at end ($(date))"; free -h; df -h /
