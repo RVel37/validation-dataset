@@ -29,8 +29,8 @@ task bamsurgeon {
 
         outbam="~{basename(bam, ".bam")}.~{fam_member}.out.bam"
 
-        timeout 3600 \ # bamsurgeon occasionally gets stuck if no mutations are added
-        python3 /usr/local/bin/addsnv.py \
+         # bamsurgeon occasionally gets stuck if no mutations are added
+        timeout -k 60 3600 python3 /usr/local/bin/addsnv.py \
                 -v ~{bed} \
                 -f ~{bam} \
                 -r ${referenceFasta} \

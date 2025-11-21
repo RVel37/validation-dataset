@@ -5,6 +5,7 @@ import "tasks/bam_to_fastq.wdl" as bam_to_fastq
 struct SampleInputs {
     File bam
     String fam_member
+    String proband_sex
 }
 
 workflow fastqs {
@@ -18,8 +19,14 @@ workflow fastqs {
             input:
             bam = s.bam,
             fam_member=s.fam_member,
-            dockerHtslib=dockerHtslib    
-        } 
+            dockerHtslib=dockerHtslib
+        }
+
+        call bam_to_fastq.name{
+            r1_fastq = bam_to_fastq.r1_fastq
+            r2_fastq = bam_to_fastq.r2_fastq
+            sex = proband_sex
+        }
     }
 
     output {
