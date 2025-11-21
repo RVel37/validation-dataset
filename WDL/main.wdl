@@ -18,7 +18,6 @@ workflow main {
         File refGenomeBwaTar
         String dockerSamtools
         String dockerBamsurgeon
-        # String dockerHtslib
     }
 
     scatter (s in samples) {
@@ -59,7 +58,7 @@ workflow main {
         #     input:
         #     bam = merge_bams.bam,
         #     fam_member=s.fam_member,
-        #     dockerHtslib=dockerHtslib
+        #     dockerSamtools=dockerSamtools
         # }
 
     }

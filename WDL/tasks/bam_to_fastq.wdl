@@ -4,13 +4,13 @@ task bam_to_fastq {
     input {
         File bam
         String fam_member
-        String dockerHtslib
+        String dockerSamtools
     }
 
-    Int disk_gb = ceil(3 * size(bam, "GiB"))
+    Int disk_gb = ceil(4 * size(bam, "GiB"))
     String mem = "16 GB"
     Int threads = 16
-    Int task_threads = 8
+    Int task_threads = 12
     Int cpu = (threads)/2
 
     command <<<
@@ -45,18 +45,20 @@ task bam_to_fastq {
         gpu: false
         memory: "${mem}"
         disks: "local-disk ${disk_gb} SSD"
-        docker: "${dockerHtslib}"
+        docker: "${dockerSamtools}"
     }
 }
+
 
 task name {
     input {
         File r1_fastq
         File r2_fastq
-        File proband_sex
+        String fam_member
+        String proband_sex
     }
 
-    Int disk_gb = ceil(1.2 * size((r1_fastq) + (r2_fastq), "GiB"))
+    Int disk_gb = ceil(1.2 * ( size(r1_fastq, "GiB") + size(r2_fastq, "GiB") ))
     String mem = "4 GB"
     Int threads = 4
     Int cpu = (threads)/2
@@ -64,26 +66,25 @@ task name {
     command <<<
     
     # Determine sample no. based on filename
-    if [[ "~{basename(r1_fastq)}" == *proband* ]]; then
-        s_no="~{S1}"
-    elif [[ "~{basename(r1_fastq)}" == *mother* ]]; then
-        s_no="~{S2}"
-    elif [[ "~{basename(r1_fastq)}" == *father* ]]; then
-        s_no="~{S3}"
+    if [[ "~{fam_member}" == "proband" ]]; then
+        s_no="S1"
+    elif [[ "~{fam_member}" == "mother" ]]; then
+        s_no="S2"
+    elif [[ "~{fam_member}" == "father" ]]; then
+        s_no="S3"
     fi
 
     # Build final output names
-    R1_name="WGS_EX_~{proband_sex}_123_${s_no}_L001_R1_001.fastq.gz"
-    R2_name="WGS_EX_~{proband_sex}_123_${s_no}_L001_R2_001.fastq.gz"
+    R1_name="WGS_EX~{fam_member}~{proband_sex}_123_${s_no}_L001_R1_001.fastq.gz"
+    R2_name="WGS_EX~{fam_member}~{proband_sex}_123_${s_no}_L001_R2_001.fastq.gz"
 
-    mv "~{r1_fastq}" "${R1_name}"
-    mv "~{r2_fastq}" "${R2_name}"
-
+    mv ~{r1_fastq} "${R1_name}"
+    mv ~{r2_fastq} "${R2_name}"
     >>>
 
     output {
-        File namedR1 = ${R1_name}
-        File namedR2 = ${R2_name}
+        File namedR1 = glob("WGS_EX~{fam_member}~{proband_sex}_123_S*_L001_R1_001.fastq.gz")[0]
+        File namedR2 = glob("WGS_EX~{fam_member}~{proband_sex}_123_S*_L001_R2_001.fastq.gz")[0]
     }
 
     runtime {
@@ -91,7 +92,6 @@ task name {
         gpu: false
         memory: "${mem}"
         disks: "local-disk ${disk_gb} SSD"
-        docker: "${dockerHtslib}"
+        docker: "ubuntu:latest"
     }
-
 }
